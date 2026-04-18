@@ -1,0 +1,17 @@
+{
+    "name": "@protocol-atlas/api",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@protocol-atlas/core": "workspace:*",
+        "@protocol-atlas/db": "workspace:*"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "build": "tsc -b",
+        "typecheck": "tsc -b --pretty false",
+        "lint": "tsc -b --pretty false",
+        "clean": "rm -rf dist *.tsbuildinfo"
+    }
+}
