@@ -3,3 +3,4 @@ export * from './client.js';
 export * from './schema/index.js';
 export * from './repositories/opportunities.js';
 export * from './repositories/operator-actions.js';
+export * from './repositories/audit-events.js';

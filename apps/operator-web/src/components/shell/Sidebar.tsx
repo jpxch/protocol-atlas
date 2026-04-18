@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import styles from './Sidebar.module.scss';
 
 const navItems = [
@@ -6,35 +9,23 @@ const navItems = [
     href: '/',
     title: 'Dashboard',
     meta: 'Control room overview, charts, health, and queue state',
-    active: true,
   },
   {
     href: '/opportunities',
     title: 'Opportunities',
-    meta: 'Review surfaced protocol opportunities and action context',
-    active: false,
-  },
-  {
-    href: '#',
-    title: 'Reviews',
-    meta: 'AI summaries, deterministic checks, and operator verdicts',
-    active: false,
-  },
-  {
-    href: '#',
-    title: 'Execution',
-    meta: 'Simulations, approvals, attempts, and execution history',
-    active: false,
+    meta: 'Review surfaced opportunities and request backend actions',
   },
 ] as const;
 
 const protocols = [
-  { name: 'Aave', state: 'Healthy' },
-  { name: 'Uniswap V3', state: 'Healthy' },
-  { name: 'Velodrome', state: 'Healthy' },
+  { name: 'Aave', state: 'pending' },
+  { name: 'Uniswap V3', state: 'pending' },
+  { name: 'Velodrome', state: 'pending' },
 ] as const;
 
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brandBlock}>
@@ -49,7 +40,9 @@ export function Sidebar() {
         <p className={styles.navLabel}>Navigation</p>
 
         {navItems.map((item) => {
-          const className = item.active ? styles.navLinkActive : styles.navLink;
+          const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+
+          const className = isActive ? styles.navLinkActive : styles.navLink;
 
           return (
             <Link key={item.title} href={item.href} className={className}>
@@ -77,8 +70,8 @@ export function Sidebar() {
         <p className={styles.footerLabel}>Current operator</p>
         <p className={styles.footerValue}>Jorge</p>
         <p className={styles.footerText}>
-          Browser buttons request actions. Backend validation, audit logging, and execution safety
-          gates decide what actually happens.
+          Browser actions request backend workflows. Validation, audit logging, and safety gates
+          decide what actually happens.
         </p>
       </section>
     </aside>

@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { OpportunityFlowPoint } from '@/types/dashboard';
+import type { ApiOpportunityRecord } from '@/types/api';
 import styles from './ChartPanel.module.scss';
 
 const OpportunityFlowChart = dynamic(
@@ -15,10 +15,10 @@ const OpportunityFlowChart = dynamic(
 interface ChartPanelProps {
   title: string;
   subtitle: string;
-  data: readonly OpportunityFlowPoint[];
+  opportunities: readonly ApiOpportunityRecord[];
 }
 
-export function ChartPanel({ title, subtitle, data }: ChartPanelProps) {
+export function ChartPanel({ title, subtitle, opportunities }: ChartPanelProps) {
   return (
     <section className={`${styles.panelRoot} panel`}>
       <div className={styles.header}>
@@ -27,11 +27,11 @@ export function ChartPanel({ title, subtitle, data }: ChartPanelProps) {
           <p className={styles.subtitle}>{subtitle}</p>
         </div>
 
-        <span className="kicker">7 day view</span>
+        <span className="kicker">Live data</span>
       </div>
 
       <div className={styles.chartHost}>
-        <OpportunityFlowChart data={data} />
+        <OpportunityFlowChart opportunities={opportunities} />
       </div>
     </section>
   );

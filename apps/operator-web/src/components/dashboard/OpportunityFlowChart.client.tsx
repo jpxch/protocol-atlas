@@ -1,36 +1,56 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as echarts from 'echarts/core';
 import type { ComposeOption } from 'echarts/core';
-import { LineChart } from 'echarts/charts';
-import type { LineSeriesOption } from 'echarts/charts';
-import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
-import type {
-  GridComponentOption,
-  TooltipComponentOption,
-  LegendComponentOption,
-} from 'echarts/components';
+import { BarChart } from 'echarts/charts';
+import type { BarSeriesOption } from 'echarts/charts';
+import { GridComponent, TooltipComponent } from 'echarts/components';
+import type { GridComponentOption, TooltipComponentOption } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import type { OpportunityFlowPoint } from '@/types/dashboard';
+import type { ApiOpportunityRecord } from '@/types/api';
 
-echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
-type OpportunityFlowOption = ComposeOption<
-  LineSeriesOption | GridComponentOption | TooltipComponentOption | LegendComponentOption
+type OpportunityChartOption = ComposeOption<
+  BarSeriesOption | GridComponentOption | TooltipComponentOption
 >;
 
 interface OpportunityFlowChartProps {
-  data: readonly OpportunityFlowPoint[];
+  opportunities: readonly ApiOpportunityRecord[];
 }
 
-export function OpportunityFlowChart({ data }: OpportunityFlowChartProps) {
+function parseUsd(value: string | null): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function OpportunityFlowChart({ opportunities }: OpportunityFlowChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const points = useMemo(() => {
+    const totals = new Map<string, number>();
+
+    for (const opportunity of opportunities) {
+      const current = totals.get(opportunity.chain) ?? 0;
+      totals.set(opportunity.chain, current + parseUsd(opportunity.money.netUsd));
+    }
+
+    return Array.from(totals.entries()).map(([label, value]) => ({
+      label,
+      value: Number(value.toFixed(2)),
+    }));
+  }, [opportunities]);
 
   useEffect(() => {
     const container = containerRef.current;
 
-    if (!container) {
+    if (!container || points.length === 0) {
       return;
     }
 
@@ -38,14 +58,13 @@ export function OpportunityFlowChart({ data }: OpportunityFlowChartProps) {
       renderer: 'canvas',
     });
 
-    const option: OpportunityFlowOption = {
-      animationDuration: 420,
-      animationDurationUpdate: 320,
-      color: ['#5aa7ff', '#7b8cff'],
+    const option: OpportunityChartOption = {
+      animationDuration: 320,
+      color: ['#5aa7ff'],
       grid: {
-        top: 24,
+        top: 20,
         right: 20,
-        bottom: 48,
+        bottom: 40,
         left: 48,
       },
       tooltip: {
@@ -57,20 +76,9 @@ export function OpportunityFlowChart({ data }: OpportunityFlowChartProps) {
           color: '#d4dbea',
         },
       },
-      legend: {
-        bottom: 10,
-        left: 14,
-        itemWidth: 10,
-        itemHeight: 10,
-        textStyle: {
-          color: '#8e9ab0',
-          fontSize: 11,
-        },
-      },
       xAxis: {
         type: 'category',
-        boundaryGap: false,
-        data: data.map((point) => point.label),
+        data: points.map((point) => point.label),
         axisLine: {
           lineStyle: {
             color: 'rgba(111, 130, 161, 0.18)',
@@ -104,30 +112,10 @@ export function OpportunityFlowChart({ data }: OpportunityFlowChartProps) {
       },
       series: [
         {
-          name: 'Surfaced value',
-          type: 'line',
-          smooth: true,
-          symbol: 'none',
-          lineStyle: {
-            width: 3,
-          },
-          areaStyle: {
-            color: 'rgba(90, 167, 255, 0.14)',
-          },
-          data: data.map((point) => point.surfacedValue),
-        },
-        {
-          name: 'Validated value',
-          type: 'line',
-          smooth: true,
-          symbol: 'none',
-          lineStyle: {
-            width: 3,
-          },
-          areaStyle: {
-            color: 'rgba(123, 140, 255, 0.10)',
-          },
-          data: data.map((point) => point.validatedValue),
+          name: 'Net USD',
+          type: 'bar',
+          barMaxWidth: 44,
+          data: points.map((point) => point.value),
         },
       ],
     };
@@ -144,7 +132,11 @@ export function OpportunityFlowChart({ data }: OpportunityFlowChartProps) {
       resizeObserver.disconnect();
       chart.dispose();
     };
-  }, [data]);
+  }, [points]);
+
+  if (points.length === 0) {
+    return <div className="atlas-chart-empty">No persisted opportunities yet.</div>;
+  }
 
   return <div ref={containerRef} className="atlas-chart-canvas" />;
 }

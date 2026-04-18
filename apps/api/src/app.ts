@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { createDatabaseClient } from '@protocol-atlas/db';
 import { getEnv } from './env.js';
+import { registerAuditEventRoutes } from './routes/audit-events.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerOpportunityRoutes } from './routes/opportunities.js';
 import { registerOperatorActionRoutes } from './routes/operator-actions.js';
@@ -17,6 +18,7 @@ export async function buildApp() {
 
   await registerHealthRoutes(app, db);
   await registerOpportunityRoutes(app, db);
+  await registerAuditEventRoutes(app, db);
   await registerOperatorActionRoutes(app, db);
 
   return { app, env };

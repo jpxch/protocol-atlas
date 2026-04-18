@@ -1,35 +1,47 @@
+import type { ApiAuditEventRecord } from '@/types/api';
 import styles from './ActivityPanel.module.scss';
 
-const recentEvents = [
-  {
-    title: 'Scan run completed',
-    meta: '14 protocol surfaces checked · 3 opportunities promoted to review',
-  },
-  {
-    title: 'Operator action recorded',
-    meta: 'Jorge approved simulation for atlas_arb_aave_001',
-  },
-  {
-    title: 'Execution remains gated',
-    meta: 'Privileged action still requires backend validation, audit logging, and preflight checks',
-  },
-] as const;
+interface ActivityPanelProps {
+  items: readonly ApiAuditEventRecord[];
+}
 
-export function ActivityPanel() {
+function formatEventTitle(eventType: string): string {
+  switch (eventType) {
+    case 'operator_action_requested':
+      return 'Operator action requested';
+    default:
+      return eventType.replaceAll('_', ' ');
+  }
+}
+
+export function ActivityPanel({ items }: ActivityPanelProps) {
   return (
     <section className={`${styles.panelRoot} panel`}>
       <div className={styles.header}>
         <h3 className={styles.title}>Recent events</h3>
-        <span className="kicker">Live log</span>
+        <span className="kicker">Audit trail</span>
       </div>
 
       <div className={styles.list}>
-        {recentEvents.map((event) => (
-          <article key={event.title} className={styles.item}>
-            <p className={styles.itemTitle}>{event.title}</p>
-            <p className={styles.itemMeta}>{event.meta}</p>
+        {items.length === 0 ? (
+          <article className={styles.item}>
+            <p className={styles.itemTitle}>No audit events recorded yet</p>
+            <p className={styles.itemMeta}>
+              Operator requests, scan history, simulation events, and execution outcomes will appear
+              here once they are persisted.
+            </p>
           </article>
-        ))}
+        ) : (
+          items.map((event) => (
+            <article key={event.id} className={styles.item}>
+              <p className={styles.itemTitle}>{formatEventTitle(event.eventType)}</p>
+              <p className={styles.itemMeta}>
+                Entity: {event.entityType} · Actor: {event.actorId ?? 'system'} ·{' '}
+                {new Date(event.createdAt).toLocaleString()}
+              </p>
+            </article>
+          ))
+        )}
       </div>
     </section>
   );
