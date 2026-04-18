@@ -7,6 +7,16 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
+const EMPTY_OPPORTUNITIES_RESPONSE: OpportunitiesResponse = {
+  items: [],
+  count: 0,
+};
+
+const EMPTY_AUDIT_EVENTS_RESPONSE: AuditEventsResponse = {
+  items: [],
+  count: 0,
+};
+
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
@@ -16,20 +26,38 @@ async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function getOpportunities(): Promise<OpportunitiesResponse> {
-  const response = await fetch(`${API_BASE_URL}/opportunities`, {
-    cache: 'no-store',
-  });
+function warnApiReadFailure(endpoint: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : 'Unknown API read failure';
 
-  return parseJson<OpportunitiesResponse>(response);
+  console.warn(`Unable to load ${endpoint} from ${API_BASE_URL}: ${message}`);
+}
+
+export async function getOpportunities(): Promise<OpportunitiesResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/opportunities`, {
+      cache: 'no-store',
+    });
+
+    return parseJson<OpportunitiesResponse>(response);
+  } catch (error) {
+    warnApiReadFailure('/opportunities', error);
+
+    return EMPTY_OPPORTUNITIES_RESPONSE;
+  }
 }
 
 export async function getAuditEvents(): Promise<AuditEventsResponse> {
-  const response = await fetch(`${API_BASE_URL}/audit-events`, {
-    cache: 'no-store',
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/audit-events`, {
+      cache: 'no-store',
+    });
 
-  return parseJson<AuditEventsResponse>(response);
+    return parseJson<AuditEventsResponse>(response);
+  } catch (error) {
+    warnApiReadFailure('/audit-events', error);
+
+    return EMPTY_AUDIT_EVENTS_RESPONSE;
+  }
 }
 
 export async function requestOperatorAction(

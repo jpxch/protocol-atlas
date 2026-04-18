@@ -4,6 +4,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
+        "@aave/core-v3": "^1.19.3",
         "@protocol-atlas/core": "workspace:*",
         "@protocol-atlas/db": "workspace:*",
         "dotenv": "^17.4.2",

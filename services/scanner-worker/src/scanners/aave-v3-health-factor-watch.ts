@@ -1,33 +1,21 @@
-import { createPublicClient, http } from 'viem';
-import type { Address } from 'viem';
+import PoolArtifact from '@aave/core-v3/artifacts/contracts/protocol/pool/Pool.sol/Pool.json' with { type: 'json' };
+import { createPublicClient, getAbiItem, http } from 'viem';
+import type { Abi, AbiEvent, Address } from 'viem';
 import type { OpportunityRecord, RiskLevel } from '@protocol-atlas/core';
 import {
   completeScanRun,
   createDatabaseClient,
   createScanRun,
   expireScannerOpportunities,
+  listActiveWatchlistTargets,
   upsertOpportunity,
+  upsertWatchlistTarget,
 } from '@protocol-atlas/db';
 import type { ScannerEnv } from '../env.js';
 
-const AAVE_V3_POOL_ABI = [
-  {
-    type: 'function',
-    stateMutability: 'view',
-    name: 'getUserAccountData',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [
-      { name: 'totalCollateralBase', type: 'uint256' },
-      { name: 'totalDebtBase', type: 'uint256' },
-      { name: 'availableBorrowsBase', type: 'uint256' },
-      { name: 'currentLiquidationThreshold', type: 'uint256' },
-      { name: 'ltv', type: 'uint256' },
-      { name: 'healthFactor', type: 'uint256' },
-    ],
-  },
-] as const;
+const POOL_ABI = PoolArtifact.abi as Abi;
 
-const SCANNER_KEY = 'aave-v3-watchlist';
+const SCANNER_KEY = 'aave-v3-auto-watch';
 const PROTOCOL_KEY = 'aave-v3';
 const CHAIN_KEY = 'arbitrum';
 
@@ -108,6 +96,74 @@ function buildOpportunityRecord(input: {
   };
 }
 
+function buildWatchlistId(address: Address): string {
+  return `aave-v3:arbitrum:watch:${address.toLowerCase()}`;
+}
+
+function extractBorrowTarget(log: {
+  readonly args?: Record<string, unknown> | readonly unknown[];
+}): Address | null {
+  const args = log.args;
+
+  if (!args || Array.isArray(args)) {
+    return null;
+  }
+
+  const namedArgs = args as Record<string, unknown>;
+  const onBehalfOf = namedArgs.onBehalfOf;
+  const user = namedArgs.user;
+
+  if (typeof onBehalfOf === 'string' && /^0x[a-fA-F0-9]{40}$/.test(onBehalfOf)) {
+    return onBehalfOf as Address;
+  }
+
+  if (typeof user === 'string' && /^0x[a-fA-F0-9]{40}$/.test(user)) {
+    return user as Address;
+  }
+
+  return null;
+}
+
+async function discoverBorrowers(env: ScannerEnv): Promise<readonly Address[]> {
+  const publicClient = createPublicClient({
+    transport: http(env.arbitrumRpcUrl),
+  });
+
+  const latestBlock = await publicClient.getBlockNumber();
+  const fromBlock =
+    latestBlock > env.aaveV3DiscoveryBlockWindow
+      ? latestBlock - env.aaveV3DiscoveryBlockWindow
+      : 0n;
+
+  const borrowEvent = getAbiItem({
+    abi: POOL_ABI,
+    name: 'Borrow',
+  });
+
+  if (!borrowEvent || borrowEvent.type !== 'event') {
+    throw new Error('Aave V3 Pool ABI is missing the Borrow event');
+  }
+
+  const logs = await publicClient.getLogs({
+    address: env.aaveV3ArbitrumPoolAddress,
+    event: borrowEvent as AbiEvent,
+    fromBlock,
+    toBlock: latestBlock,
+  });
+
+  const unique = new Set<string>();
+
+  for (const log of logs.slice(-env.aaveV3DiscoveryMaxLogs)) {
+    const target = extractBorrowTarget(log);
+
+    if (target) {
+      unique.add(target.toLowerCase());
+    }
+  }
+
+  return Array.from(unique) as Address[];
+}
+
 export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promise<void> {
   const db = createDatabaseClient({
     databaseUrl: env.databaseUrl,
@@ -129,6 +185,28 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
   });
 
   try {
+    const discoveredTargets = await discoverBorrowers(env);
+
+    const observedAt = new Date().toISOString();
+
+    for (const address of discoveredTargets) {
+      await upsertWatchlistTarget(db, {
+        id: buildWatchlistId(address),
+        chain: CHAIN_KEY,
+        protocolKey: PROTOCOL_KEY,
+        targetAddress: address,
+        source: 'aave-pool-borrow-log',
+        observedAt,
+        metadata: {},
+      });
+    }
+
+    const watchTargets = await listActiveWatchlistTargets(db, {
+      chain: CHAIN_KEY,
+      protocolKey: PROTOCOL_KEY,
+      limit: 5000,
+    });
+
     await expireScannerOpportunities(db, {
       scannerKey: SCANNER_KEY,
       protocolKey: PROTOCOL_KEY,
@@ -137,12 +215,12 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
 
     const opportunities: OpportunityRecord[] = [];
 
-    for (const user of env.aaveV3Watchlist) {
+    for (const target of watchTargets) {
       const result = await publicClient.readContract({
         address: env.aaveV3ArbitrumPoolAddress,
-        abi: AAVE_V3_POOL_ABI,
+        abi: POOL_ABI,
         functionName: 'getUserAccountData',
-        args: [user],
+        args: [target.targetAddress as Address],
       });
 
       const [
@@ -152,7 +230,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         currentLiquidationThreshold,
         ltv,
         healthFactorRaw,
-      ] = result;
+      ] = result as readonly [bigint, bigint, bigint, bigint, bigint, bigint];
 
       const healthFactor = formatHealthFactor(healthFactorRaw);
 
@@ -164,20 +242,18 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         continue;
       }
 
-      const observedAt = new Date().toISOString();
+      const opportunity = buildOpportunityRecord({
+        user: target.targetAddress as Address,
+        healthFactorRaw,
+        totalCollateralBase,
+        totalDebtBase,
+        availableBorrowsBase,
+        currentLiquidationThreshold,
+        ltv,
+        observedAt: new Date().toISOString(),
+      });
 
-      opportunities.push(
-        buildOpportunityRecord({
-          user,
-          healthFactorRaw,
-          totalCollateralBase,
-          totalDebtBase,
-          availableBorrowsBase,
-          currentLiquidationThreshold,
-          ltv,
-          observedAt,
-        }),
-      );
+      opportunities.push(opportunity);
     }
 
     for (const opportunity of opportunities) {
@@ -190,7 +266,8 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
       opportunitiesFound: opportunities.length,
       completedAt: new Date().toISOString(),
       metadata: {
-        watchlistSize: env.aaveV3Watchlist.length,
+        discoveredTargets: discoveredTargets.length,
+        persistedTargets: watchTargets.length,
         threshold: env.aaveV3HealthFactorThreshold,
       },
     });
@@ -202,7 +279,8 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
           protocolKey: PROTOCOL_KEY,
           chain: CHAIN_KEY,
           runId,
-          watchlistSize: env.aaveV3Watchlist.length,
+          discoveredTargets: discoveredTargets.length,
+          persistedTargets: watchTargets.length,
           opportunitiesFound: opportunities.length,
         },
         null,
