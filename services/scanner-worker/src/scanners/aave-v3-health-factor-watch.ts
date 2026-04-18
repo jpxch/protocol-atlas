@@ -4,7 +4,7 @@ import type { Abi, AbiEvent, Address } from 'viem';
 import type { OpportunityRecord, RiskLevel } from '@protocol-atlas/core';
 import {
   completeScanRun,
-  createDatabaseClient,
+  createDatabaseConnection,
   createScanRun,
   expireScannerOpportunities,
   listActiveWatchlistTargets,
@@ -165,7 +165,7 @@ async function discoverBorrowers(env: ScannerEnv): Promise<readonly Address[]> {
 }
 
 export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promise<void> {
-  const db = createDatabaseClient({
+  const { db, pool } = createDatabaseConnection({
     databaseUrl: env.databaseUrl,
   });
 
@@ -214,14 +214,33 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
     });
 
     const opportunities: OpportunityRecord[] = [];
+    let failedTargets = 0;
 
     for (const target of watchTargets) {
-      const result = await publicClient.readContract({
-        address: env.aaveV3ArbitrumPoolAddress,
-        abi: POOL_ABI,
-        functionName: 'getUserAccountData',
-        args: [target.targetAddress as Address],
-      });
+      let result: unknown;
+
+      try {
+        result = await publicClient.readContract({
+          address: env.aaveV3ArbitrumPoolAddress,
+          abi: POOL_ABI,
+          functionName: 'getUserAccountData',
+          args: [target.targetAddress as Address],
+        });
+      } catch (error) {
+        failedTargets += 1;
+
+        console.warn(
+          JSON.stringify({
+            scannerKey: SCANNER_KEY,
+            protocolKey: PROTOCOL_KEY,
+            chain: CHAIN_KEY,
+            targetAddress: target.targetAddress,
+            error: error instanceof Error ? error.message : 'unknown target read failure',
+          }),
+        );
+
+        continue;
+      }
 
       const [
         totalCollateralBase,
@@ -268,6 +287,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
       metadata: {
         discoveredTargets: discoveredTargets.length,
         persistedTargets: watchTargets.length,
+        failedTargets,
         threshold: env.aaveV3HealthFactorThreshold,
       },
     });
@@ -281,6 +301,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
           runId,
           discoveredTargets: discoveredTargets.length,
           persistedTargets: watchTargets.length,
+          failedTargets,
           opportunitiesFound: opportunities.length,
         },
         null,
@@ -299,5 +320,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
     });
 
     throw error;
+  } finally {
+    await pool.end();
   }
 }

@@ -6,6 +6,8 @@ import type {
 } from '@/types/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+const OPERATOR_ACTIONS_URL =
+  typeof window === 'undefined' ? `${API_BASE_URL}/operator-actions` : '/api/operator-actions';
 
 const EMPTY_OPPORTUNITIES_RESPONSE: OpportunitiesResponse = {
   items: [],
@@ -63,7 +65,7 @@ export async function getAuditEvents(): Promise<AuditEventsResponse> {
 export async function requestOperatorAction(
   input: OperatorActionRequest,
 ): Promise<OperatorActionResponse> {
-  const response = await fetch(`${API_BASE_URL}/operator-actions`, {
+  const response = await fetch(OPERATOR_ACTIONS_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

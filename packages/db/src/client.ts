@@ -24,3 +24,16 @@ export function createDatabaseClient(options: DatabaseClientOptions) {
 }
 
 export type DatabaseClient = ReturnType<typeof createDatabaseClient>;
+
+export function createDatabaseConnection(options: DatabaseClientOptions) {
+  const pool = createPgPool(options);
+  const db = drizzle({
+    client: pool,
+    schema,
+  });
+
+  return {
+    db,
+    pool,
+  };
+}
