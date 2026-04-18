@@ -5,13 +5,19 @@
     "type": "module",
     "dependencies": {
         "@protocol-atlas/core": "workspace:*",
-        "@protocol-atlas/db": "workspace:*"
+        "@protocol-atlas/db": "workspace:*",
+        "dotenv": "^17.4.2",
+        "fastify": "^5.8.5",
+        "zod": "^4.3.6"
     },
     "scripts": {
-        "dev": "tsx watch src/server.ts",
+        "dev": "tsc -b ../../packages/core ../../packages/db && tsx watch src/server.ts",
         "build": "tsc -b",
         "typecheck": "tsc -b --pretty false",
         "lint": "tsc -b --pretty false",
         "clean": "rm -rf dist *.tsbuildinfo"
+    },
+    "devDependencies": {
+        "@types/node": "^24.12.2"
     }
 }

@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { sql } from 'drizzle-orm';
-import type { DatabaseClient } from '@protocol-atlas/db';
+import { sql, type DatabaseClient } from '@protocol-atlas/db';
 
 export async function registerHealthRoutes(app: FastifyInstance, db: DatabaseClient) {
   app.get('/health', async () => {
