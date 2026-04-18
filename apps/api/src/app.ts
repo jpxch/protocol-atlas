@@ -5,6 +5,7 @@ import { registerAuditEventRoutes } from './routes/audit-events.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerOpportunityRoutes } from './routes/opportunities.js';
 import { registerOperatorActionRoutes } from './routes/operator-actions.js';
+import { registerWatchlistTargetRoutes } from './routes/watchlist-targets.js';
 
 export async function buildApp() {
   const env = getEnv();
@@ -20,6 +21,7 @@ export async function buildApp() {
   await registerOpportunityRoutes(app, db);
   await registerAuditEventRoutes(app, db);
   await registerOperatorActionRoutes(app, db);
+  await registerWatchlistTargetRoutes(app, db);
 
   return { app, env };
 }
