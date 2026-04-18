@@ -4,6 +4,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/db" },
     { "path": "./apps/api" },
-    { "path": "./apps/operator-web" }
+    { "path": "./apps/operator-web" },
+    { "path": "./services/scanner-worker" }
   ]
 }

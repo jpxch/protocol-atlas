@@ -4,3 +4,4 @@ export * from './schema/index.js';
 export * from './repositories/opportunities.js';
 export * from './repositories/operator-actions.js';
 export * from './repositories/audit-events.js';
+export * from './repositories/scan-runs.js';
