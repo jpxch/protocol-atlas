@@ -1,0 +1,33 @@
+:root {
+  --atlas-bg-0: #06070a;
+  --atlas-bg-1: #0b0e14;
+  --atlas-bg-2: #111621;
+  --atlas-bg-3: #171d2a;
+
+  --atlas-surface-0: rgba(17, 22, 33, 0.78);
+  --atlas-surface-1: rgba(22, 29, 42, 0.88);
+  --atlas-surface-2: rgba(28, 37, 53, 0.92);
+
+  --atlas-border-subtle: rgba(111, 130, 161, 0.18);
+  --atlas-border-strong: rgba(120, 157, 218, 0.28);
+
+  --atlas-text-strong: #f4f7fb;
+  --atlas-text-main: #d4dbea;
+  --atlas-text-muted: #8e9ab0;
+  --atlas-text-faint: #667186;
+
+  --atlas-accent-info: #5aa7ff;
+  --atlas-accent-info-soft: rgba(90, 167, 255, 0.16);
+
+  --atlas-accent-success: #38c793;
+  --atlas-accent-success-soft: rgba(56, 199, 147, 0.14);
+
+  --atlas-accent-warn: #ffb547;
+  --atlas-accent-warn-soft: rgba(255, 181, 71, 0.14);
+
+  --atlas-accent-danger: #ff6f6f;
+  --atlas-accent-danger-soft: rgba(255, 111, 111, 0.14);
+
+  --atlas-accent-intel: #7b8cff;
+  --atlas-accent-intel-soft: rgba(123, 140, 255, 0.16);
+}

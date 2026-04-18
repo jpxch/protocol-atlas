@@ -1,0 +1,55 @@
+.root {
+  display: grid;
+  gap: 20px;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.lowerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.8fr);
+  gap: 20px;
+}
+
+.sideStack {
+  display: grid;
+  gap: 20px;
+}
+
+.doctrinePanel {
+  padding: 18px;
+}
+
+.doctrineTitle {
+  margin: 0 0 12px;
+  color: var(--atlas-text-strong);
+  font-size: var(--text-lg);
+  letter-spacing: -0.03em;
+}
+
+.doctrineText {
+  margin: 0;
+  color: var(--atlas-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+}
+
+@media (max-width: 1280px) {
+  .metricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lowerGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,23 @@
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(circle at top, rgba(90, 167, 255, 0.08), transparent 22%),
+    linear-gradient(180deg, var(--atlas-bg-1) 0%, var(--atlas-bg-0) 100%);
+  color: var(--atlas-text-main);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 90%);
+}

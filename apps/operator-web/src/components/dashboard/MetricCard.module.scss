@@ -1,0 +1,34 @@
+.card {
+  padding: 18px;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+}
+
+.label {
+  color: var(--atlas-text-muted);
+  font-size: var(--text-sm);
+}
+
+.value {
+  color: var(--atlas-text-strong);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trend {
+  color: var(--atlas-text-faint);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

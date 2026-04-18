@@ -1,0 +1,44 @@
+.panelRoot {
+  padding: 18px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  color: var(--atlas-text-strong);
+  font-size: var(--text-lg);
+  letter-spacing: -0.03em;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.item {
+  padding: 14px;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.itemTitle {
+  margin: 0 0 6px;
+  color: var(--atlas-text-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.itemMeta {
+  margin: 0;
+  color: var(--atlas-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
