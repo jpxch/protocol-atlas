@@ -66,7 +66,7 @@ Validated on 2026-04-18 from the local repo and `continuum-mini`.
 Repository:
 
 - Branch: `main`
-- Current commit: `e67f1cf feat: expose watchlist targets route`
+- Snapshot: `main` after the watchlist page rollout and route cleanup.
 - Remote: `git@github.com:jpxch/protocol-atlas.git`
 - Package manager: `pnpm@10.28.2`
 - Workspace runner: Turbo
@@ -96,14 +96,16 @@ Implemented API routes:
 - `GET /audit-events`
 - `POST /operator-actions`
 - `GET /watchlist-targets`
+- `GET /scan-runs`
 
 Implemented web routes:
 
 - `GET /`
 - `GET /opportunities`
+- `GET /watchlist`
 - `POST /api/operator-actions`
-- `GET /watchlist-targets`
 - `GET /api/watchlist-targets`
+- `GET /api/scan-runs`
 
 Current deployment on `continuum-mini`:
 
@@ -119,7 +121,8 @@ Current deployed checks:
 
 - `http://127.0.0.1:4000/health` returns `200`.
 - `http://127.0.0.1:4000/watchlist-targets?limit=1` returns persisted Aave watchlist data.
-- `http://127.0.0.1:3000/watchlist-targets?limit=1` proxies the same watchlist data.
+- `http://127.0.0.1:3000/watchlist` returns the operator watchlist page.
+- `http://127.0.0.1:3000/api/watchlist-targets?limit=1` proxies watchlist JSON for browser-safe access.
 - `http://192.168.0.74:3000` is reachable on the LAN.
 - API and web systemd units are active.
 - Scanner timer is active and has completed recurring runs.
@@ -150,6 +153,7 @@ protocol-atlas/
 │   │           ├── health.ts
 │   │           ├── operator-actions.ts
 │   │           ├── opportunities.ts
+│   │           ├── scan-runs.ts
 │   │           └── watchlist-targets.ts
 │   └── operator-web/
 │       ├── next.config.mts
@@ -162,9 +166,10 @@ protocol-atlas/
 │           │   ├── page.tsx
 │           │   ├── api/
 │           │   │   ├── operator-actions/route.ts
+│           │   │   ├── scan-runs/route.ts
 │           │   │   └── watchlist-targets/route.ts
 │           │   ├── opportunities/page.tsx
-│           │   └── watchlist-targets/route.ts
+│           │   └── watchlist/page.tsx
 │           ├── components/
 │           │   ├── dashboard/
 │           │   │   ├── ActivityPanel.tsx
@@ -180,7 +185,10 @@ protocol-atlas/
 │           │       └── Topbar.tsx
 │           ├── features/
 │           │   ├── dashboard/DashboardScreen.tsx
-│           │   └── opportunities/OpportunitiesBoard.tsx
+│           │   ├── opportunities/OpportunitiesBoard.tsx
+│           │   └── watchlist/
+│           │       ├── WatchlistBoard.module.scss
+│           │       └── WatchlistBoard.tsx
 │           ├── lib/
 │           │   └── api.ts
 │           ├── styles/
@@ -306,7 +314,7 @@ Do not optimize near-term work around full autonomy, mempool warfare, Rust-every
 | 1 | Core Engine | In Progress | Chain, opportunity, review, provider, and scanner contracts exist. More protocol adapter structure and tests are needed. |
 | 2 | Persistence Layer | In Progress | Drizzle schema and repositories exist for core records, action requests, audit events, scan runs, and watchlist targets. Migration/backup/retention procedure still needs hardening. |
 | 3 | API Platform | In Progress | Fastify app exposes health, opportunities, audit events, operator actions, and watchlist targets. Auth, pagination, error shape, and readiness checks remain open. |
-| 4 | Operator Dashboard | In Progress | Dashboard and opportunity board are API-backed. Watchlist JSON proxy exists. Case-file/detail views and richer action UX remain open. |
+| 4 | Operator Dashboard | In Progress | Dashboard, opportunity board, and watchlist page are API-backed. Case-file/detail views and richer action UX remain open. |
 | 5 | Manual Action Workflow | Started | Operator action requests are persisted. Backend lifecycle, stale-data checks, simulation prerequisites, and audit event fanout need work. |
 | 6 | Execution Engine | Not Started | Future backend execution path remains doctrine-level only. No executor contracts, signing, simulation, or safety gates are implemented. |
 | 7 | Rust Service Introduction | Deferred | Rust remains intentionally deferred until a measured need exists. |
@@ -348,6 +356,7 @@ API:
 - `registerAuditEventRoutes`
 - `registerOperatorActionRoutes`
 - `registerWatchlistTargetRoutes`
+- `registerScanRunRoutes`
 
 Scanner:
 
@@ -367,6 +376,7 @@ Operator web:
 - `Topbar`
 - `DashboardScreen`
 - `OpportunitiesBoard`
+- `WatchlistBoard`
 - `OpportunityTable`
 - `MetricCard`
 - `ChartPanel`
@@ -375,12 +385,13 @@ Operator web:
 - API read helpers with empty-state fallback
 - same-origin operator-action proxy
 - same-origin watchlist-target proxy
+- same-origin scan-run proxy
 
 ## Current Gaps
 
 Product and UX:
 
-- No dedicated watchlist UI page yet; `/watchlist-targets` currently returns JSON through the web proxy.
+- Watchlist page exists, but target drilldowns and richer scan-run detail views are still shallow.
 - No opportunity detail / case-file page.
 - No operator action history panel scoped to an opportunity.
 - No review refresh or simulation result UI.
@@ -392,7 +403,6 @@ API and data:
 - No pagination/cursor contract for large tables.
 - No stable API error envelope.
 - No readiness endpoint separate from `/health`.
-- No API route for scan-run history.
 - No API route for operator action history by opportunity.
 - No retention policy for `audit_events`, `scan_runs`, or `watchlist_targets`.
 
@@ -451,7 +461,10 @@ Runtime checks:
 curl 'http://127.0.0.1:4000/health'
 curl 'http://127.0.0.1:4000/opportunities'
 curl 'http://127.0.0.1:4000/watchlist-targets?limit=2'
-curl 'http://127.0.0.1:3000/watchlist-targets?limit=2'
+curl 'http://127.0.0.1:4000/scan-runs?limit=2'
+curl 'http://127.0.0.1:3000/watchlist'
+curl 'http://127.0.0.1:3000/api/watchlist-targets?limit=2'
+curl 'http://127.0.0.1:3000/api/scan-runs?limit=2'
 systemctl --user status protocol-atlas-api.service
 systemctl --user status protocol-atlas-web.service
 systemctl --user list-timers 'protocol-atlas*'
@@ -467,17 +480,17 @@ systemctl --user list-timers 'protocol-atlas*'
 - [ ] Document the user-level systemd units and why they are user services.
 - [ ] Document DB creation, Drizzle push, backup, restore, and retention.
 - [ ] Add a readiness endpoint that checks DB connectivity.
-- [ ] Add scanner run history API route.
+- [x] Add scanner run history API route.
 - [ ] Add basic log and disk cleanup guidance for the mini.
 
-### Milestone B: Make Watchlists Operator-Visible
+### Milestone B: Deepen Watchlist Operations
 
-- [ ] Build a real watchlist page instead of JSON-only `/watchlist-targets`.
-- [ ] Add filters for chain, protocol, source, active state, and address search.
-- [ ] Add counts for active targets, newly discovered targets, stale targets, and failed reads.
+- [x] Build a real watchlist page instead of JSON-only `/watchlist-targets`.
+- [x] Add filters for chain, protocol, source, active state, and address search.
+- [x] Add counts for active targets, newly discovered targets, stale targets, and failed reads.
 - [ ] Link watchlist targets to related opportunities when present.
-- [ ] Add API pagination for watchlist targets.
-- [ ] Add scan-run metadata display for discovered/persisted/failed counts.
+- [x] Add API pagination for watchlist targets.
+- [x] Add scan-run metadata display for discovered/persisted/failed counts.
 
 ### Milestone C: Harden Opportunity Review
 
