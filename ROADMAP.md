@@ -504,10 +504,12 @@ Runtime checks:
 curl 'http://127.0.0.1:4000/health'
 curl 'http://127.0.0.1:4000/opportunities'
 curl 'http://127.0.0.1:4000/liquidation-candidates?limit=2'
+curl 'http://127.0.0.1:4000/liquidation-plans?limit=2'
 curl 'http://127.0.0.1:4000/watchlist-targets?limit=2'
 curl 'http://127.0.0.1:4000/scan-runs?limit=2'
 curl 'http://127.0.0.1:3000/liquidations'
 curl 'http://127.0.0.1:3000/api/liquidation-candidates?limit=2'
+curl 'http://127.0.0.1:3000/api/liquidation-plans?limit=2'
 curl 'http://127.0.0.1:3000/watchlist'
 curl 'http://127.0.0.1:3000/api/watchlist-targets?limit=2'
 curl 'http://127.0.0.1:3000/api/scan-runs?limit=2'
@@ -564,11 +566,13 @@ systemctl --user list-timers 'protocol-atlas*'
 - [x] Persist candidate-level liquidation economics in opportunity payloads.
 - [x] Add liquidation candidates API route.
 - [x] Add liquidation cockpit page.
+- [x] Persist reserve-level liquidation plans for scanner-promoted candidates.
+- [x] Add liquidation plans API route and same-origin proxy.
+- [x] Add debt/collateral pair display to the liquidation cockpit.
 - [ ] Define simulation intent contract separately from opportunity state.
 - [ ] Define simulation result schema.
-- [ ] Add reserve-level debt/collateral pair discovery.
 - [ ] Add DEX quote and slippage model for seized collateral swaps.
-- [ ] Add flashloan premium and priority-fee inputs to profitability checks.
+- [ ] Replace placeholder gas/slippage/priority-fee inputs with live estimates.
 - [ ] Define backend-only approval gate.
 - [ ] Define execution attempt and outcome records.
 - [ ] Keep all signing credentials backend-only.
