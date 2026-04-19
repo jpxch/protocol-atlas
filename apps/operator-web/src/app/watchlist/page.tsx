@@ -1,5 +1,6 @@
 import { WatchlistBoard } from '@/features/watchlist/WatchlistBoard';
 import { getRecentScanRuns, getWatchlistTargets } from '@/lib/api';
+import type { GetRecentScanRunsInput, GetWatchlistTargetsInput } from '@/lib/api';
 import type { ApiChainKey, ApiScanRunStatus } from '@/types/api';
 
 type SearchParamValue = string | string[] | undefined;
@@ -99,22 +100,25 @@ export default async function WatchlistPage({ searchParams }: WatchlistPageProps
   const offset = parseNonNegativeInt(firstValue(resolvedSearchParams.offset), 0);
   const scanStatus = parseScanRunStatus(firstValue(resolvedSearchParams.scanStatus));
 
+  const watchlistInput: GetWatchlistTargetsInput = {
+    ...(chain ? { chain } : {}),
+    ...(protocolKey ? { protocolKey } : {}),
+    ...(source ? { source } : {}),
+    ...(typeof isActive !== 'undefined' ? { isActive } : {}),
+    ...(search ? { search } : {}),
+    limit,
+    offset,
+  };
+  const scanRunsInput: GetRecentScanRunsInput = {
+    ...(chain ? { chain } : {}),
+    ...(protocolKey ? { protocolKey } : {}),
+    ...(scanStatus ? { status: scanStatus } : {}),
+    limit: 10,
+  };
+
   const [watchlistResponse, scanRunsResponse] = await Promise.all([
-    getWatchlistTargets({
-      chain,
-      protocolKey,
-      source,
-      isActive,
-      search,
-      limit,
-      offset,
-    }),
-    getRecentScanRuns({
-      chain,
-      protocolKey,
-      status: scanStatus,
-      limit: 10,
-    }),
+    getWatchlistTargets(watchlistInput),
+    getRecentScanRuns(scanRunsInput),
   ]);
 
   return (

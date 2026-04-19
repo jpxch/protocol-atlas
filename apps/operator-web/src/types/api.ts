@@ -60,6 +60,7 @@ export interface ApiWatchlistTargetRecord {
   readonly id: string;
   readonly chain: ApiChainKey;
   readonly protocolKey: string;
+  readonly targetAddress: string;
   readonly source: string;
   readonly isActive: boolean;
   readonly firstSeenAt: string;
@@ -102,6 +103,7 @@ export interface ScanRunsResponse {
   readonly filters: {
     readonly chain: ApiChainKey | null;
     readonly protocolKey: string | null;
+    readonly scannerKey: string | null;
     readonly status: ApiScanRunStatus | null;
   };
 }
