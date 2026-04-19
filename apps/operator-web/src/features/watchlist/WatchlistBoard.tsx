@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import type {
@@ -90,7 +91,7 @@ function buildWatchlistUrl(input: {
   readonly search: string;
   readonly limit: string;
   readonly offset: number;
-}): string {
+}): Route {
   const searchParams = new URLSearchParams();
 
   if (input.chain !== 'all') {
@@ -133,7 +134,7 @@ function buildWatchlistUrl(input: {
 
   const query = searchParams.toString();
 
-  return query.length > 0 ? `/watchlist?${query}` : '/watchlist';
+  return (query.length > 0 ? `/watchlist?${query}` : '/watchlist') as Route;
 }
 
 function collectProtocolOptions(items: readonly ApiWatchlistTargetRecord[]): string[] {
