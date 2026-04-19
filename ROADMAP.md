@@ -76,8 +76,8 @@ Implemented packages and apps:
 
 - `packages/core`: domain contracts for chains, opportunities, reviews, provider ports, and scanner interfaces.
 - `packages/db`: Drizzle client, schema, and repositories.
-- `apps/api`: Fastify API with health, opportunity, audit-event, operator-action, and watchlist-target routes.
-- `apps/operator-web`: Next.js operator UI with dashboard, opportunities board, same-origin proxy routes, SCSS modules, and ECharts.
+- `apps/api`: Fastify API with health, opportunity, liquidation, audit-event, operator-action, and watchlist-target routes.
+- `apps/operator-web`: Next.js operator UI with dashboard, opportunities board, liquidation cockpit, same-origin proxy routes, SCSS modules, and ECharts.
 - `services/scanner-worker`: Aave V3 Arbitrum health-factor watch scanner.
 
 Implemented database tables:
@@ -431,7 +431,7 @@ Operator web:
 Product and UX:
 
 - Watchlist page exists, but target drilldowns and richer scan-run detail views are still shallow.
-- Liquidation cockpit now shows reserve-level plans, but plans still lack executable DEX route quotes and transaction simulation.
+- Liquidation cockpit now shows reserve-level plans, same-asset route readiness, live gas-priced estimates, and calldata metadata. Swap-required routes still need executable DEX quotes and full transaction simulation.
 - No opportunity detail / case-file page.
 - No operator action history panel scoped to an opportunity.
 - No review refresh or simulation result UI.
@@ -454,7 +454,7 @@ Scanner:
 - USD normalization is candidate-level using Aave base currency totals; reserve-level asset path normalization is still deferred.
 - Discovery is based on recent Borrow logs and persisted watchlist targets.
 - No DEX quote, exact gas simulation, or priority-fee bidding model yet.
-- Flashloan premium is read from Aave; slippage, gas, and priority fee are still placeholder risk inputs.
+- Flashloan premium is read from Aave and gas is priced from the live RPC gas price; swap slippage and priority fee are still conservative placeholders.
 - No queue layer yet.
 
 Operations:
@@ -569,10 +569,12 @@ systemctl --user list-timers 'protocol-atlas*'
 - [x] Persist reserve-level liquidation plans for scanner-promoted candidates.
 - [x] Add liquidation plans API route and same-origin proxy.
 - [x] Add debt/collateral pair display to the liquidation cockpit.
+- [x] Mark same-asset liquidation plans as no-swap routes.
+- [x] Add live RPC gas price input and liquidation calldata metadata to plan payloads.
 - [ ] Define simulation intent contract separately from opportunity state.
 - [ ] Define simulation result schema.
 - [ ] Add DEX quote and slippage model for seized collateral swaps.
-- [ ] Replace placeholder gas/slippage/priority-fee inputs with live estimates.
+- [ ] Replace placeholder slippage and priority-fee inputs with live estimates.
 - [ ] Define backend-only approval gate.
 - [ ] Define execution attempt and outcome records.
 - [ ] Keep all signing credentials backend-only.

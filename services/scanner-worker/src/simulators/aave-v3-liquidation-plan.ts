@@ -2,6 +2,7 @@ import AaveOracleArtifact from '@aave/core-v3/artifacts/contracts/interfaces/IAa
 import PoolAddressesProviderArtifact from '@aave/core-v3/artifacts/contracts/interfaces/IPoolAddressesProvider.sol/IPoolAddressesProvider.json' with { type: 'json' };
 import PoolArtifact from '@aave/core-v3/artifacts/contracts/protocol/pool/Pool.sol/Pool.json' with { type: 'json' };
 import type { LiquidationPlanRecord } from '@protocol-atlas/core';
+import { encodeFunctionData } from 'viem';
 import type { Abi, Address, PublicClient } from 'viem';
 
 const POOL_ABI = PoolArtifact.abi as Abi;
@@ -31,8 +32,10 @@ const CLOSE_FACTOR_HF_THRESHOLD = 0.95;
 const DEFAULT_CLOSE_FACTOR_BPS = 5_000;
 const MAX_CLOSE_FACTOR_BPS = 10_000;
 const DEFAULT_GAS_COST_USD = 12;
-const DEFAULT_PRIORITY_FEE_USD = 3;
+const DEFAULT_PRIORITY_FEE_USD = 0;
 const DEFAULT_SLIPPAGE_BPS = 50;
+const FLASHLOAN_LIQUIDATION_GAS_UNITS = 650_000n;
+const MIN_SUBMITTABLE_NET_PROFIT_USD = 15;
 
 interface ReservePosition {
   readonly asset: Address;
@@ -150,6 +153,47 @@ function usdToTokenAmount(valueUsd: number, decimals: number, priceUsd: number):
   }
 
   return decimalNumberToBigint(valueUsd / priceUsd, decimals);
+}
+
+function estimateGasCostUsd(input: {
+  readonly gasPriceWei: bigint;
+  readonly gasUnits: bigint;
+  readonly nativeTokenPriceUsd: number;
+}): number {
+  if (input.nativeTokenPriceUsd <= 0) {
+    return DEFAULT_GAS_COST_USD;
+  }
+
+  const gasNative = Number(input.gasPriceWei * input.gasUnits) / 1e18;
+
+  return gasNative * input.nativeTokenPriceUsd;
+}
+
+function findNativeTokenPriceUsd(positions: readonly ReservePosition[]): number {
+  const wrappedNative = positions.find((position) =>
+    ['WETH', 'ETH'].includes(position.symbol.toUpperCase()),
+  );
+
+  return wrappedNative?.priceUsd ?? 0;
+}
+
+function buildLiquidationCallCalldata(input: {
+  readonly collateralAsset: Address;
+  readonly debtAsset: Address;
+  readonly userAddress: Address;
+  readonly debtToCover: bigint;
+}): string {
+  return encodeFunctionData({
+    abi: POOL_ABI,
+    functionName: 'liquidationCall',
+    args: [
+      input.collateralAsset,
+      input.debtAsset,
+      input.userAddress,
+      input.debtToCover,
+      false,
+    ],
+  });
 }
 
 function buildBlockedPlan(input: PlanInput, reason: string, payload: Record<string, unknown> = {}) {
@@ -278,7 +322,7 @@ async function readReservePosition(input: {
 export async function buildAaveV3LiquidationPlan(
   input: PlanInput,
 ): Promise<LiquidationPlanRecord> {
-  const [reserves, addressesProvider, flashloanPremiumRaw, userConfig, blockNumber] =
+  const [reserves, addressesProvider, flashloanPremiumRaw, userConfig, blockNumber, gasPriceWei] =
     await Promise.all([
       input.publicClient.readContract({
         address: input.poolAddress,
@@ -302,6 +346,7 @@ export async function buildAaveV3LiquidationPlan(
         args: [input.userAddress],
       }),
       input.publicClient.getBlockNumber(),
+      input.publicClient.getGasPrice(),
     ]);
 
   if (!Array.isArray(reserves) || typeof addressesProvider !== 'string') {
@@ -360,6 +405,12 @@ export async function buildAaveV3LiquidationPlan(
   const closeFactorBps =
     input.healthFactor <= CLOSE_FACTOR_HF_THRESHOLD ? MAX_CLOSE_FACTOR_BPS : DEFAULT_CLOSE_FACTOR_BPS;
   const flashloanPremiumBps = Number(flashloanPremiumRaw);
+  const nativeTokenPriceUsd = findNativeTokenPriceUsd(positions);
+  const gasCostUsd = estimateGasCostUsd({
+    gasPriceWei,
+    gasUnits: FLASHLOAN_LIQUIDATION_GAS_UNITS,
+    nativeTokenPriceUsd,
+  });
   let bestPlan: LiquidationPlanRecord | null = null;
   let bestNetUsd = Number.NEGATIVE_INFINITY;
 
@@ -384,12 +435,15 @@ export async function buildAaveV3LiquidationPlan(
 
       const grossBonusUsd = debtToCoverUsd * (liquidationBonusMultiplier - 1);
       const flashloanPremiumUsd = debtToCoverUsd * (flashloanPremiumBps / BPS);
-      const slippageUsd = debtToCoverUsd * (DEFAULT_SLIPPAGE_BPS / BPS);
+      const isSameAssetRoute = collateral.asset.toLowerCase() === debt.asset.toLowerCase();
+      const routeSlippageBps = isSameAssetRoute ? 0 : DEFAULT_SLIPPAGE_BPS;
+      const routeSupported = isSameAssetRoute;
+      const slippageUsd = debtToCoverUsd * (routeSlippageBps / BPS);
       const netProfitUsd =
         grossBonusUsd -
         flashloanPremiumUsd -
         slippageUsd -
-        DEFAULT_GAS_COST_USD -
+        gasCostUsd -
         DEFAULT_PRIORITY_FEE_USD;
 
       if (netProfitUsd <= bestNetUsd) {
@@ -403,9 +457,22 @@ export async function buildAaveV3LiquidationPlan(
         collateral.decimals,
         collateral.priceUsd,
       );
+      const liquidationCallCalldata = buildLiquidationCallCalldata({
+        collateralAsset: collateral.asset,
+        debtAsset: debt.asset,
+        userAddress: input.userAddress,
+        debtToCover,
+      });
 
       bestNetUsd = netProfitUsd;
-      const isExecutable = input.healthFactor < 1 && netProfitUsd > 0;
+      const isExecutable =
+        input.healthFactor < 1 && routeSupported && netProfitUsd >= MIN_SUBMITTABLE_NET_PROFIT_USD;
+      const blocker =
+        input.healthFactor >= 1
+          ? 'Health factor is not below 1.0 yet.'
+          : routeSupported
+            ? `Net profit is below the $${MIN_SUBMITTABLE_NET_PROFIT_USD.toFixed(2)} submit floor.`
+            : 'Debt and collateral assets differ; a live DEX quote is required before submission.';
 
       bestPlan = {
         id: `${input.candidateOpportunityId}:plan`,
@@ -424,25 +491,40 @@ export async function buildAaveV3LiquidationPlan(
         estimatedCollateralSeizedUsd: formatUsd(estimatedCollateralSeizedUsd),
         liquidationBonusBps: collateral.liquidationBonusBps,
         flashloanPremiumBps,
-        gasCostUsd: formatUsd(DEFAULT_GAS_COST_USD),
+        gasCostUsd: formatUsd(gasCostUsd),
         priorityFeeUsd: formatUsd(DEFAULT_PRIORITY_FEE_USD),
-        slippageBps: DEFAULT_SLIPPAGE_BPS,
+        slippageBps: routeSlippageBps,
         netProfitUsd: formatUsd(netProfitUsd),
-        confidence: netProfitUsd > 25 ? 'medium' : 'low',
+        confidence: routeSupported && netProfitUsd > 25 ? 'high' : routeSupported ? 'medium' : 'low',
         status: isExecutable ? 'planned' : 'blocked',
         reason:
           isExecutable
-            ? 'Best reserve pair clears candidate-level net profit after flashloan premium, slippage, gas, and priority fee placeholders.'
-            : input.healthFactor >= 1
-              ? 'Best reserve pair identified, but health factor is not below 1.0 yet.'
-              : 'Best reserve pair is not profitable after flashloan premium, slippage, gas, and priority fee placeholders.',
+            ? 'Same-asset reserve pair clears the submit floor with live gas price and no swap route required.'
+            : `Best reserve pair identified, but blocked: ${blocker}`,
         blockNumber: blockNumber.toString(),
         payload: {
           closeFactorBps,
           isExecutableNow: input.healthFactor < 1,
+          submitFloorUsd: formatUsd(MIN_SUBMITTABLE_NET_PROFIT_USD),
+          submitWorthy: isExecutable,
           grossBonusUsd: formatUsd(grossBonusUsd),
           flashloanPremiumUsd: formatUsd(flashloanPremiumUsd),
           slippageUsd: formatUsd(slippageUsd),
+          feeInputs: {
+            gasPriceWei: gasPriceWei.toString(),
+            gasUnits: FLASHLOAN_LIQUIDATION_GAS_UNITS.toString(),
+            nativeTokenPriceUsd: formatUsd(nativeTokenPriceUsd),
+            gasCostUsd: formatUsd(gasCostUsd),
+            priorityFeeUsd: formatUsd(DEFAULT_PRIORITY_FEE_USD),
+          },
+          executionReadiness: {
+            routeKind: isSameAssetRoute ? 'same-asset-no-swap' : 'swap-required',
+            routeSupported,
+            swapRequired: !isSameAssetRoute,
+            liquidationCallCalldata,
+            receiveAToken: false,
+            blocker: isExecutable ? null : blocker,
+          },
           priceOracle,
           reserveCounts: {
             total: positions.length,
@@ -450,7 +532,7 @@ export async function buildAaveV3LiquidationPlan(
             collateral: collateralPositions.length,
           },
           caveat:
-            'This plan selects exact reserves and estimates flashloan economics, but it does not yet quote an executable DEX swap route or simulate transaction calldata.',
+            'Same-asset routes are no-swap flashloan candidates. Swap-required routes still need a live DEX quote and full transaction simulation before submission.',
         },
         createdAt: input.observedAt,
         updatedAt: input.observedAt,

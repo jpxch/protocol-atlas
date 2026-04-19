@@ -154,6 +154,19 @@ function signalClass(signal: CandidateDetails['signal']): string {
   }
 }
 
+function getPlanRouteLabel(plan: ApiLiquidationPlanRecord): string {
+  const routeKind = readText(plan.payload, ['executionReadiness', 'routeKind']);
+
+  switch (routeKind) {
+    case 'same-asset-no-swap':
+      return 'No swap';
+    case 'swap-required':
+      return 'Swap needed';
+    default:
+      return 'Unknown route';
+  }
+}
+
 function summarize(
   candidates: readonly ApiOpportunityRecord[],
   plansByCandidateId: ReadonlyMap<string, ApiLiquidationPlanRecord>,
@@ -344,8 +357,8 @@ export function LiquidationsBoard({ response, plansResponse }: LiquidationsBoard
             <div>
               <h2 className={styles.panelTitle}>Candidates</h2>
               <p className={styles.panelSubtitle}>
-                Estimates are conservative placeholders until reserve-level debt, collateral, swap
-                plans now select exact debt and collateral reserves; swap routing is still pending.
+                Plans select exact reserves, price live gas, and mark no-swap candidates separately
+                from routes that still need DEX quotes.
               </p>
             </div>
 
@@ -414,7 +427,7 @@ export function LiquidationsBoard({ response, plansResponse }: LiquidationsBoard
                     {plan ? (
                       <div className={styles.planPanel}>
                         <div>
-                          <span className={styles.statLabel}>Plan</span>
+                          <span className={styles.statLabel}>Pair</span>
                           <strong className={styles.statValue}>
                             {plan.debtSymbol ?? 'debt'} to{' '}
                             {plan.collateralSymbol ?? 'collateral'}
@@ -436,7 +449,12 @@ export function LiquidationsBoard({ response, plansResponse }: LiquidationsBoard
                         </div>
 
                         <div>
-                          <span className={styles.statLabel}>Plan state</span>
+                          <span className={styles.statLabel}>Route</span>
+                          <strong className={styles.statValue}>{getPlanRouteLabel(plan)}</strong>
+                        </div>
+
+                        <div>
+                          <span className={styles.statLabel}>State</span>
                           <strong className={styles.statValue}>
                             {plan.status} / {plan.confidence}
                           </strong>
