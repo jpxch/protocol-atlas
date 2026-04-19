@@ -253,10 +253,6 @@ async function readReservePosition(input: {
 export async function buildAaveV3LiquidationPlan(
   input: PlanInput,
 ): Promise<LiquidationPlanRecord> {
-  if (input.healthFactor >= 1) {
-    return buildBlockedPlan(input, 'Health factor is not below 1.0; liquidation is not executable.');
-  }
-
   const [reserves, addressesProvider, flashloanPremiumRaw, userConfig, blockNumber] =
     await Promise.all([
       input.publicClient.readContract({
@@ -388,6 +384,8 @@ export async function buildAaveV3LiquidationPlan(
       );
 
       bestNetUsd = netProfitUsd;
+      const isExecutable = input.healthFactor < 1 && netProfitUsd > 0;
+
       bestPlan = {
         id: `${input.candidateOpportunityId}:plan`,
         candidateOpportunityId: input.candidateOpportunityId,
@@ -410,14 +408,17 @@ export async function buildAaveV3LiquidationPlan(
         slippageBps: DEFAULT_SLIPPAGE_BPS,
         netProfitUsd: formatUsd(netProfitUsd),
         confidence: netProfitUsd > 25 ? 'medium' : 'low',
-        status: netProfitUsd > 0 ? 'planned' : 'blocked',
+        status: isExecutable ? 'planned' : 'blocked',
         reason:
-          netProfitUsd > 0
+          isExecutable
             ? 'Best reserve pair clears candidate-level net profit after flashloan premium, slippage, gas, and priority fee placeholders.'
-            : 'Best reserve pair is not profitable after flashloan premium, slippage, gas, and priority fee placeholders.',
+            : input.healthFactor >= 1
+              ? 'Best reserve pair identified, but health factor is not below 1.0 yet.'
+              : 'Best reserve pair is not profitable after flashloan premium, slippage, gas, and priority fee placeholders.',
         blockNumber: blockNumber.toString(),
         payload: {
           closeFactorBps,
+          isExecutableNow: input.healthFactor < 1,
           grossBonusUsd: formatUsd(grossBonusUsd),
           flashloanPremiumUsd: formatUsd(flashloanPremiumUsd),
           slippageUsd: formatUsd(slippageUsd),
