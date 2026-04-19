@@ -101,14 +101,31 @@ function getConfigData(value: unknown): bigint {
   return 0n;
 }
 
-function getReserveDataAddress(value: unknown, index: number): Address | null {
+function getRecordAddress(value: unknown, key: string): Address | null {
+  const record = value as Record<string, unknown> | undefined;
+  const item = record?.[key];
+
+  return typeof item === 'string' && /^0x[a-fA-F0-9]{40}$/.test(item) ? (item as Address) : null;
+}
+
+function getReserveDataAddress(value: unknown, index: number, key: string): Address | null {
   if (!Array.isArray(value)) {
-    return null;
+    return getRecordAddress(value, key);
   }
 
   const item = value[index];
 
   return typeof item === 'string' && /^0x[a-fA-F0-9]{40}$/.test(item) ? (item as Address) : null;
+}
+
+function getReserveId(value: unknown): number {
+  if (Array.isArray(value)) {
+    return Number(value[7] ?? 0);
+  }
+
+  const record = value as { id?: unknown } | undefined;
+
+  return Number(record?.id ?? 0);
 }
 
 function getUserConfigBit(userConfigData: bigint, reserveId: number, bitOffset: 0 | 1): boolean {
@@ -206,10 +223,18 @@ async function readReservePosition(input: {
   });
 
   const configData = getConfigData(configuration);
-  const reserveId = Array.isArray(reserveData) ? Number(reserveData[7] ?? 0) : 0;
-  const aTokenAddress = getReserveDataAddress(reserveData, 8);
-  const stableDebtTokenAddress = getReserveDataAddress(reserveData, 9);
-  const variableDebtTokenAddress = getReserveDataAddress(reserveData, 10);
+  const reserveId = getReserveId(reserveData);
+  const aTokenAddress = getReserveDataAddress(reserveData, 8, 'aTokenAddress');
+  const stableDebtTokenAddress = getReserveDataAddress(
+    reserveData,
+    9,
+    'stableDebtTokenAddress',
+  );
+  const variableDebtTokenAddress = getReserveDataAddress(
+    reserveData,
+    10,
+    'variableDebtTokenAddress',
+  );
 
   if (!aTokenAddress || !stableDebtTokenAddress || !variableDebtTokenAddress) {
     return null;
