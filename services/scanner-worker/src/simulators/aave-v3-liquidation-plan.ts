@@ -369,10 +369,6 @@ export async function buildAaveV3LiquidationPlan(
     const maxRepayUsd = debtUsd * (closeFactorBps / BPS);
 
     for (const collateral of collateralPositions) {
-      if (collateral.asset.toLowerCase() === debt.asset.toLowerCase()) {
-        continue;
-      }
-
       const liquidationBonusMultiplier = collateral.liquidationBonusBps / BPS;
       const collateralUsd = tokenAmountUsd(
         collateral.collateralBalance,
