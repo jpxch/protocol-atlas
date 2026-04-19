@@ -17,7 +17,13 @@ const scanRunsQuerySchema = z.object({
 export async function registerScanRunRoutes(app: FastifyInstance, db: DatabaseClient) {
   app.get('/scan-runs', async (request) => {
     const query = scanRunsQuerySchema.parse(request.query);
-    const items = await listRecentScanRuns(db, query);
+    const items = await listRecentScanRuns(db, {
+      ...(query.chain ? { chain: query.chain } : {}),
+      ...(query.protocolKey ? { protocolKey: query.protocolKey } : {}),
+      ...(query.scannerKey ? { scannerKey: query.scannerKey } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      limit: query.limit,
+    });
 
     return {
       items,

@@ -1,0 +1,303 @@
+.root {
+  display: grid;
+  gap: 20px;
+}
+
+.headerPanel,
+.filtersPanel,
+.candidatesPanel {
+  padding: 18px;
+}
+
+.headerTop,
+.panelHeader,
+.cardTop,
+.actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title,
+.panelTitle,
+.cardTitle {
+  margin: 0;
+  color: var(--atlas-text-strong);
+  letter-spacing: 0;
+}
+
+.title {
+  margin-bottom: 6px;
+  font-size: var(--text-xl);
+}
+
+.subtitle,
+.panelSubtitle,
+.cardMeta,
+.reason,
+.caveat {
+  margin: 0;
+  color: var(--atlas-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.metric {
+  display: grid;
+  gap: 8px;
+  min-height: 92px;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.metricLabel,
+.label,
+.statLabel,
+.netLabel {
+  color: var(--atlas-text-faint);
+  font-size: var(--text-xs);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.metricValue,
+.netValue {
+  color: var(--atlas-text-strong);
+  font-size: var(--text-xl);
+  line-height: 1.1;
+}
+
+.filtersPanel {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.input,
+.select {
+  width: 100%;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--atlas-text-main);
+  outline: none;
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--atlas-border-strong);
+  box-shadow: 0 0 0 1px rgba(90, 167, 255, 0.2);
+}
+
+.toast,
+.errorToast {
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  color: var(--atlas-text-main);
+  font-size: var(--text-sm);
+}
+
+.toast {
+  border: 1px solid var(--atlas-border-strong);
+  background: rgba(90, 167, 255, 0.08);
+}
+
+.errorToast {
+  border: 1px solid rgba(255, 111, 111, 0.3);
+  background: rgba(255, 111, 111, 0.08);
+}
+
+.panelHeader {
+  margin-bottom: 16px;
+}
+
+.panelBadge {
+  flex: 0 0 auto;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+  color: var(--atlas-text-muted);
+  font-size: var(--text-xs);
+}
+
+.candidateList {
+  display: grid;
+  gap: 14px;
+}
+
+.emptyState {
+  border: 1px dashed var(--atlas-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  color: var(--atlas-text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.candidateCard {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.cardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.signalBadge,
+.riskBadge {
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.signalActionable {
+  border: 1px solid rgba(97, 213, 145, 0.35);
+  background: rgba(97, 213, 145, 0.12);
+  color: #a7f0c1;
+}
+
+.signalLowMargin {
+  border: 1px solid rgba(255, 204, 102, 0.35);
+  background: rgba(255, 204, 102, 0.12);
+  color: #ffe09b;
+}
+
+.signalWatchClose {
+  border: 1px solid rgba(90, 167, 255, 0.35);
+  background: rgba(90, 167, 255, 0.12);
+  color: #b6d8ff;
+}
+
+.signalUnknown,
+.riskBadge {
+  border: 1px solid var(--atlas-border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--atlas-text-muted);
+}
+
+.cardTitle {
+  margin-bottom: 6px;
+  font-size: var(--text-lg);
+}
+
+.netBlock {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+  text-align: right;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.statsGrid > div {
+  display: grid;
+  gap: 6px;
+  min-height: 74px;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.statValue {
+  color: var(--atlas-text-strong);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.reason {
+  color: var(--atlas-text-main);
+}
+
+.caveat {
+  border-left: 2px solid var(--atlas-border-strong);
+  padding-left: 10px;
+}
+
+.actions {
+  justify-content: flex-start;
+}
+
+.primaryAction,
+.secondaryAction {
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryAction {
+  border: 1px solid var(--atlas-border-strong);
+  background: rgba(90, 167, 255, 0.14);
+  color: var(--atlas-text-strong);
+}
+
+.secondaryAction {
+  border: 1px solid var(--atlas-border-subtle);
+  background: transparent;
+  color: var(--atlas-text-muted);
+}
+
+.primaryAction:disabled,
+.secondaryAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 1100px) {
+  .metricsGrid,
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filtersPanel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .headerTop,
+  .panelHeader,
+  .cardTop,
+  .actions {
+    display: grid;
+  }
+
+  .metricsGrid,
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .netBlock {
+    min-width: 0;
+    text-align: left;
+  }
+}

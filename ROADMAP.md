@@ -95,14 +95,17 @@ Implemented API routes:
 - `GET /opportunities`
 - `GET /audit-events`
 - `POST /operator-actions`
+- `GET /liquidation-candidates`
 - `GET /watchlist-targets`
 - `GET /scan-runs`
 
 Implemented web routes:
 
 - `GET /`
+- `GET /liquidations`
 - `GET /opportunities`
 - `GET /watchlist`
+- `GET /api/liquidation-candidates`
 - `POST /api/operator-actions`
 - `GET /api/watchlist-targets`
 - `GET /api/scan-runs`
@@ -121,8 +124,11 @@ Current deployed checks:
 
 - `http://127.0.0.1:4000/health` returns `200`.
 - `http://127.0.0.1:4000/watchlist-targets?limit=1` returns persisted Aave watchlist data.
+- `http://127.0.0.1:4000/liquidation-candidates?limit=1` returns scanner-promoted liquidation candidates.
 - `http://127.0.0.1:3000/watchlist` returns the operator watchlist page.
+- `http://127.0.0.1:3000/liquidations` returns the operator liquidation cockpit.
 - `http://127.0.0.1:3000/api/watchlist-targets?limit=1` proxies watchlist JSON for browser-safe access.
+- `http://127.0.0.1:3000/api/liquidation-candidates?limit=1` proxies liquidation candidate JSON for browser-safe access.
 - `http://192.168.0.74:3000` is reachable on the LAN.
 - API and web systemd units are active.
 - Scanner timer is active and has completed recurring runs.
@@ -131,7 +137,7 @@ Most recent scanner observations:
 
 - Aave V3 Arbitrum watchlist discovery is live.
 - `watchlist_targets` has hundreds of persisted targets.
-- Recent scanner runs have completed successfully with zero discovered opportunities.
+- Scanner opportunities now distinguish `actionable`, `low-margin`, and `watch-close` liquidation signals.
 - Some account reads can fail transiently; scanner now records `failedTargets` and continues rather than failing the whole run.
 
 ## Project Tree
@@ -151,6 +157,7 @@ protocol-atlas/
 │   │       └── routes/
 │   │           ├── audit-events.ts
 │   │           ├── health.ts
+│   │           ├── liquidation-candidates.ts
 │   │           ├── operator-actions.ts
 │   │           ├── opportunities.ts
 │   │           ├── scan-runs.ts
@@ -165,9 +172,11 @@ protocol-atlas/
 │           │   ├── layout.tsx
 │           │   ├── page.tsx
 │           │   ├── api/
+│           │   │   ├── liquidation-candidates/route.ts
 │           │   │   ├── operator-actions/route.ts
 │           │   │   ├── scan-runs/route.ts
 │           │   │   └── watchlist-targets/route.ts
+│           │   ├── liquidations/page.tsx
 │           │   ├── opportunities/page.tsx
 │           │   └── watchlist/page.tsx
 │           ├── components/
@@ -185,6 +194,9 @@ protocol-atlas/
 │           │       └── Topbar.tsx
 │           ├── features/
 │           │   ├── dashboard/DashboardScreen.tsx
+│           │   ├── liquidations/
+│           │   │   ├── LiquidationsBoard.module.scss
+│           │   │   └── LiquidationsBoard.tsx
 │           │   ├── opportunities/OpportunitiesBoard.tsx
 │           │   └── watchlist/
 │           │       ├── WatchlistBoard.module.scss
@@ -313,8 +325,8 @@ Do not optimize near-term work around full autonomy, mempool warfare, Rust-every
 | 0 | Identity & Foundation | Mostly Complete | Monorepo, pnpm, Turbo, TypeScript, Git, env conventions, deployment target, and doctrine are in place. README/security/runbooks still need expansion. |
 | 1 | Core Engine | In Progress | Chain, opportunity, review, provider, and scanner contracts exist. More protocol adapter structure and tests are needed. |
 | 2 | Persistence Layer | In Progress | Drizzle schema and repositories exist for core records, action requests, audit events, scan runs, and watchlist targets. Migration/backup/retention procedure still needs hardening. |
-| 3 | API Platform | In Progress | Fastify app exposes health, opportunities, audit events, operator actions, and watchlist targets. Auth, pagination, error shape, and readiness checks remain open. |
-| 4 | Operator Dashboard | In Progress | Dashboard, opportunity board, and watchlist page are API-backed. Case-file/detail views and richer action UX remain open. |
+| 3 | API Platform | In Progress | Fastify app exposes health, opportunities, liquidation candidates, audit events, operator actions, scan runs, and watchlist targets. Auth, pagination, error shape, and readiness checks remain open. |
+| 4 | Operator Dashboard | In Progress | Dashboard, opportunity board, liquidation cockpit, and watchlist page are API-backed. Case-file/detail views and richer action UX remain open. |
 | 5 | Manual Action Workflow | Started | Operator action requests are persisted. Backend lifecycle, stale-data checks, simulation prerequisites, and audit event fanout need work. |
 | 6 | Execution Engine | Not Started | Future backend execution path remains doctrine-level only. No executor contracts, signing, simulation, or safety gates are implemented. |
 | 7 | Rust Service Introduction | Deferred | Rust remains intentionally deferred until a measured need exists. |
@@ -327,6 +339,7 @@ Core:
 - `ChainKey`
 - `ChainDefinition`
 - `OpportunityRecord`
+- `OpportunitySignal`
 - `OpportunityStatus`
 - `OpportunityKind`
 - `RiskLevel`
@@ -343,6 +356,7 @@ Database:
 - `createPgPool`
 - `sql` re-export from `drizzle-orm`
 - opportunity repository
+- liquidation candidate query over persisted opportunities
 - scan-run repository
 - operator-action repository
 - audit-event repository
@@ -352,6 +366,7 @@ API:
 
 - `buildApp`
 - `registerHealthRoutes`
+- `registerLiquidationCandidateRoutes`
 - `registerOpportunityRoutes`
 - `registerAuditEventRoutes`
 - `registerOperatorActionRoutes`
@@ -366,6 +381,9 @@ Scanner:
 - watchlist target upsert
 - Aave `getUserAccountData` reads
 - health-factor threshold filtering
+- liquidation signal classification for actionable, low-margin, and watch-close candidates
+- candidate-level liquidation economics persisted in opportunity payloads
+- watchlist metadata refresh with latest health factor and signal snapshot
 - non-fatal per-target read failure handling
 - scan-run completion/failure recording
 
@@ -375,6 +393,7 @@ Operator web:
 - `Sidebar`
 - `Topbar`
 - `DashboardScreen`
+- `LiquidationsBoard`
 - `OpportunitiesBoard`
 - `WatchlistBoard`
 - `OpportunityTable`
@@ -383,6 +402,7 @@ Operator web:
 - `ActivityPanel`
 - `OpportunityFlowChart`
 - API read helpers with empty-state fallback
+- same-origin liquidation-candidate proxy
 - same-origin operator-action proxy
 - same-origin watchlist-target proxy
 - same-origin scan-run proxy
@@ -392,6 +412,7 @@ Operator web:
 Product and UX:
 
 - Watchlist page exists, but target drilldowns and richer scan-run detail views are still shallow.
+- Liquidation cockpit exists, but estimates are still candidate-level and not reserve-route executable.
 - No opportunity detail / case-file page.
 - No operator action history panel scoped to an opportunity.
 - No review refresh or simulation result UI.
@@ -404,14 +425,17 @@ API and data:
 - No stable API error envelope.
 - No readiness endpoint separate from `/health`.
 - No API route for operator action history by opportunity.
+- No simulation result API, execution attempt API, or realized PnL record.
 - No retention policy for `audit_events`, `scan_runs`, or `watchlist_targets`.
 
 Scanner:
 
 - Aave scanner reads targets sequentially.
 - Aave scanner only covers Arbitrum V3 and liquidation-style health factor monitoring.
-- USD normalization is explicitly deferred.
+- USD normalization is candidate-level using Aave base currency totals; reserve-level asset path normalization is still deferred.
 - Discovery is based on recent Borrow logs and persisted watchlist targets.
+- No reserve-level debt/collateral pair selection yet.
+- No DEX quote, flashloan premium, slippage, or priority-fee simulation yet.
 - No queue layer yet.
 
 Operations:
@@ -460,8 +484,11 @@ Runtime checks:
 ```bash
 curl 'http://127.0.0.1:4000/health'
 curl 'http://127.0.0.1:4000/opportunities'
+curl 'http://127.0.0.1:4000/liquidation-candidates?limit=2'
 curl 'http://127.0.0.1:4000/watchlist-targets?limit=2'
 curl 'http://127.0.0.1:4000/scan-runs?limit=2'
+curl 'http://127.0.0.1:3000/liquidations'
+curl 'http://127.0.0.1:3000/api/liquidation-candidates?limit=2'
 curl 'http://127.0.0.1:3000/watchlist'
 curl 'http://127.0.0.1:3000/api/watchlist-targets?limit=2'
 curl 'http://127.0.0.1:3000/api/scan-runs?limit=2'
@@ -509,13 +536,20 @@ systemctl --user list-timers 'protocol-atlas*'
 - [ ] Add bounded concurrency for target account reads.
 - [ ] Add retry/backoff policy for transient RPC failures.
 - [ ] Add scanner config documentation for discovery window, max logs, and threshold.
-- [ ] Add scan-run API endpoint and UI panel.
+- [x] Add scan-run API endpoint and UI panel.
 - [ ] Add retention/expiry behavior for inactive watchlist targets.
 
 ### Milestone E: Prepare Simulation And Execution Contracts
 
+- [x] Classify liquidation candidates as actionable, low-margin, or watch-close.
+- [x] Persist candidate-level liquidation economics in opportunity payloads.
+- [x] Add liquidation candidates API route.
+- [x] Add liquidation cockpit page.
 - [ ] Define simulation intent contract separately from opportunity state.
 - [ ] Define simulation result schema.
+- [ ] Add reserve-level debt/collateral pair discovery.
+- [ ] Add DEX quote and slippage model for seized collateral swaps.
+- [ ] Add flashloan premium and priority-fee inputs to profitability checks.
 - [ ] Define backend-only approval gate.
 - [ ] Define execution attempt and outcome records.
 - [ ] Keep all signing credentials backend-only.

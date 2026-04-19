@@ -13,6 +13,7 @@ export type ApiFreshnessState = 'fresh' | 'aging' | 'stale';
 export type ApiRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type ApiChainKey = 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon';
 export type ApiScanRunStatus = 'started' | 'completed' | 'failed';
+export type ApiOpportunitySignal = 'actionable' | 'watch-close' | 'low-margin';
 
 export interface ApiOpportunityRecord {
   readonly id: string;
@@ -39,6 +40,18 @@ export interface ApiOpportunityRecord {
 export interface OpportunitiesResponse {
   readonly items: ApiOpportunityRecord[];
   readonly count: number;
+}
+
+export interface LiquidationCandidatesResponse {
+  readonly items: ApiOpportunityRecord[];
+  readonly count: number;
+  readonly filters: {
+    readonly chain: ApiChainKey | null;
+    readonly protocolKey: string | null;
+    readonly status: ApiOpportunityStatus | null;
+    readonly riskLevel: ApiRiskLevel | null;
+    readonly signal: ApiOpportunitySignal | null;
+  };
 }
 
 export interface ApiAuditEventRecord {

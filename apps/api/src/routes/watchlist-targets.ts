@@ -21,7 +21,15 @@ const watchlistTargetsQuerySchema = z.object({
 export async function registerWatchlistTargetRoutes(app: FastifyInstance, db: DatabaseClient) {
   app.get('/watchlist-targets', async (request) => {
     const query = watchlistTargetsQuerySchema.parse(request.query);
-    const result = await listWatchlistTargets(db, query);
+    const result = await listWatchlistTargets(db, {
+      ...(query.chain ? { chain: query.chain } : {}),
+      ...(query.protocolKey ? { protocolKey: query.protocolKey } : {}),
+      ...(query.source ? { source: query.source } : {}),
+      ...(typeof query.isActive === 'boolean' ? { isActive: query.isActive } : {}),
+      ...(query.search ? { search: query.search } : {}),
+      limit: query.limit,
+      offset: query.offset,
+    });
 
     return {
       items: result.items,

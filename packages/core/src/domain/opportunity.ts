@@ -7,6 +7,8 @@ export type OpportunityKind =
   | 'market-inefficiency'
   | 'other';
 
+export type OpportunitySignal = 'actionable' | 'watch-close' | 'low-margin';
+
 export type OpportunityStatus =
   | 'discovered'
   | 'review-pending'

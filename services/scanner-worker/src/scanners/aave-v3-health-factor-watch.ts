@@ -1,7 +1,7 @@
 import PoolArtifact from '@aave/core-v3/artifacts/contracts/protocol/pool/Pool.sol/Pool.json' with { type: 'json' };
 import { createPublicClient, getAbiItem, http } from 'viem';
 import type { Abi, AbiEvent, Address } from 'viem';
-import type { OpportunityRecord, RiskLevel } from '@protocol-atlas/core';
+import type { OpportunityRecord, OpportunitySignal, RiskLevel } from '@protocol-atlas/core';
 import {
   completeScanRun,
   createDatabaseConnection,
@@ -20,6 +20,7 @@ const PROTOCOL_KEY = 'aave-v3';
 const CHAIN_KEY = 'arbitrum';
 const AAVE_BASE_CURRENCY_DECIMALS = 8;
 const ACTIONABLE_HEALTH_FACTOR_THRESHOLD = 1;
+const WATCH_CLOSE_HEALTH_FACTOR_THRESHOLD = 1.03;
 const LIQUIDATION_CLOSE_FACTOR = 0.5;
 const LIQUIDATION_BONUS_BPS = 500;
 const DEFAULT_GAS_COST_USD = 12;
@@ -78,6 +79,13 @@ interface LiquidationEstimate {
   readonly isWorthSurfacing: boolean;
 }
 
+interface LiquidationAssessment {
+  readonly signal: OpportunitySignal;
+  readonly reason: string;
+  readonly isExecutableNow: boolean;
+  readonly shouldPersist: boolean;
+}
+
 function estimateLiquidationCandidate(input: {
   readonly totalCollateralBase: bigint;
   readonly totalDebtBase: bigint;
@@ -107,6 +115,65 @@ function estimateLiquidationCandidate(input: {
   };
 }
 
+function assessLiquidationSignal(input: {
+  readonly healthFactor: number;
+  readonly estimate: LiquidationEstimate;
+}): LiquidationAssessment {
+  if (input.healthFactor < ACTIONABLE_HEALTH_FACTOR_THRESHOLD) {
+    if (input.estimate.netUsd >= MIN_NET_PROFIT_USD) {
+      return {
+        signal: 'actionable',
+        reason: 'Health factor is below 1.0 and estimated net profit clears the minimum threshold.',
+        isExecutableNow: true,
+        shouldPersist: true,
+      };
+    }
+
+    return {
+      signal: 'low-margin',
+      reason: 'Health factor is below 1.0, but estimated net profit is below the minimum profit floor.',
+      isExecutableNow: true,
+      shouldPersist: true,
+    };
+  }
+
+  if (input.healthFactor < WATCH_CLOSE_HEALTH_FACTOR_THRESHOLD) {
+    return {
+      signal: 'watch-close',
+      reason: 'Health factor is above 1.0 but close enough to monitor for a fast move into liquidation range.',
+      isExecutableNow: false,
+      shouldPersist: true,
+    };
+  }
+
+  return {
+    signal: 'watch-close',
+    reason: 'Outside the watch window.',
+    isExecutableNow: false,
+    shouldPersist: false,
+  };
+}
+
+function buildOpportunityTitle(input: {
+  readonly user: Address;
+  readonly signal: OpportunitySignal;
+  readonly estimate: LiquidationEstimate;
+  readonly healthFactor: number;
+}): string {
+  const short = shortAddress(input.user);
+  const net = formatUsdString(input.estimate.netUsd);
+  const healthFactor = input.healthFactor.toFixed(4);
+
+  switch (input.signal) {
+    case 'actionable':
+      return `Aave V3 liquidation opportunity ${short} · ~$${net} net`;
+    case 'low-margin':
+      return `Aave V3 low-margin liquidation ${short} · ~$${net} net`;
+    case 'watch-close':
+      return `Aave V3 watch-close borrower ${short} · HF ${healthFactor}`;
+  }
+}
+
 function buildOpportunityRecord(input: {
   readonly user: Address;
   readonly healthFactorRaw: bigint;
@@ -117,6 +184,7 @@ function buildOpportunityRecord(input: {
   readonly ltv: bigint;
   readonly observedAt: string;
   readonly estimate: LiquidationEstimate;
+  readonly assessment: LiquidationAssessment;
 }): OpportunityRecord {
   const healthFactor = formatHealthFactor(input.healthFactorRaw);
   const id = `aave-v3:arbitrum:liquidation:${input.user.toLowerCase()}`;
@@ -127,9 +195,12 @@ function buildOpportunityRecord(input: {
     dedupeKey: id,
     chain: CHAIN_KEY,
     protocolKey: PROTOCOL_KEY,
-    title: `Aave V3 liquidation candidate ${shortAddress(input.user)} · ~$${formatUsdString(
-      input.estimate.netUsd,
-    )} net`,
+    title: buildOpportunityTitle({
+      user: input.user,
+      signal: input.assessment.signal,
+      estimate: input.estimate,
+      healthFactor,
+    }),
     kind: 'liquidation',
     status: 'discovered',
     freshness: 'fresh',
@@ -144,6 +215,16 @@ function buildOpportunityRecord(input: {
     updatedAt: input.observedAt,
     payload: {
       watchTarget: input.user,
+      marketSignal: {
+        classification: input.assessment.signal,
+        reason: input.assessment.reason,
+        isExecutableNow: input.assessment.isExecutableNow,
+        thresholds: {
+          actionableHealthFactorThreshold: ACTIONABLE_HEALTH_FACTOR_THRESHOLD,
+          watchCloseHealthFactorThreshold: WATCH_CLOSE_HEALTH_FACTOR_THRESHOLD,
+          minNetProfitUsd: MIN_NET_PROFIT_USD,
+        },
+      },
       accountData: {
         totalCollateralBase: input.totalCollateralBase.toString(),
         totalDebtBase: input.totalDebtBase.toString(),
@@ -165,7 +246,7 @@ function buildOpportunityRecord(input: {
         liquidationBonusBps: LIQUIDATION_BONUS_BPS,
         estimateKind: 'candidate',
         caveat:
-          'This is a candidate-level estimate derived from Aave account totals in oracle base currency. Exact executable profit requires reserve-level position and liquidation path computation.',
+          'This is a candidate-level estimate derived from Aave account totals. Exact executable profit still requires reserve-level debt and collateral path computation.',
       },
     },
   };
@@ -332,20 +413,40 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         continue;
       }
 
-      if (healthFactor >= ACTIONABLE_HEALTH_FACTOR_THRESHOLD) {
-        continue;
-      }
-
       const estimate = estimateLiquidationCandidate({
         totalCollateralBase,
         totalDebtBase,
       });
 
-      if (!estimate.isWorthSurfacing) {
-        continue;
-      }
+      const assessment = assessLiquidationSignal({
+        healthFactor,
+        estimate,
+      });
 
       const observedAtForOpportunity = new Date().toISOString();
+
+      await upsertWatchlistTarget(db, {
+        id: buildWatchlistId(target.targetAddress as Address),
+        chain: CHAIN_KEY,
+        protocolKey: PROTOCOL_KEY,
+        targetAddress: target.targetAddress,
+        source: target.source,
+        observedAt: observedAtForOpportunity,
+        metadata: {
+          latestHealthFactor: healthFactor,
+          latestSignal: assessment.signal,
+          latestSignalReason: assessment.reason,
+          isExecutableNow: assessment.isExecutableNow,
+          totalDebtUsd: formatUsdString(estimate.totalDebtUsd),
+          totalCollateralUsd: formatUsdString(estimate.totalCollateralUsd),
+          estimatedNetUsd: formatUsdString(estimate.netUsd),
+          observedAt: observedAtForOpportunity,
+        },
+      });
+
+      if (!assessment.shouldPersist) {
+        continue;
+      }
 
       const opportunity = buildOpportunityRecord({
         user: target.targetAddress as Address,
@@ -357,6 +458,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         ltv,
         observedAt: observedAtForOpportunity,
         estimate,
+        assessment,
       });
 
       opportunities.push(opportunity);

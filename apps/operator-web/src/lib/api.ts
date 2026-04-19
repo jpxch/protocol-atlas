@@ -1,7 +1,11 @@
 import type {
   ApiChainKey,
+  ApiOpportunitySignal,
+  ApiOpportunityStatus,
+  ApiRiskLevel,
   ApiScanRunStatus,
   AuditEventsResponse,
+  LiquidationCandidatesResponse,
   OperatorActionRequest,
   OperatorActionResponse,
   OpportunitiesResponse,
@@ -16,6 +20,18 @@ const OPERATOR_ACTIONS_URL =
 const EMPTY_OPPORTUNITIES_RESPONSE: OpportunitiesResponse = {
   items: [],
   count: 0,
+};
+
+const EMPTY_LIQUIDATION_CANDIDATES_RESPONSE: LiquidationCandidatesResponse = {
+  items: [],
+  count: 0,
+  filters: {
+    chain: null,
+    protocolKey: null,
+    status: null,
+    riskLevel: null,
+    signal: null,
+  },
 };
 
 const EMPTY_AUDIT_EVENTS_RESPONSE: AuditEventsResponse = {
@@ -69,6 +85,15 @@ export interface GetRecentScanRunsInput {
   readonly limit?: number;
 }
 
+export interface GetLiquidationCandidatesInput {
+  readonly chain?: ApiChainKey;
+  readonly protocolKey?: string;
+  readonly status?: ApiOpportunityStatus;
+  readonly riskLevel?: ApiRiskLevel;
+  readonly signal?: ApiOpportunitySignal;
+  readonly limit?: number;
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
@@ -111,6 +136,31 @@ export async function getOpportunities(): Promise<OpportunitiesResponse> {
     warnApiReadFailure('/opportunities', error);
 
     return EMPTY_OPPORTUNITIES_RESPONSE;
+  }
+}
+
+export async function getLiquidationCandidates(
+  input: GetLiquidationCandidatesInput = {},
+): Promise<LiquidationCandidatesResponse> {
+  try {
+    const query = buildQueryString({
+      chain: input.chain,
+      protocolKey: input.protocolKey,
+      status: input.status,
+      riskLevel: input.riskLevel,
+      signal: input.signal,
+      limit: input.limit,
+    });
+
+    const response = await fetch(`${API_BASE_URL}/liquidation-candidates${query}`, {
+      cache: 'no-store',
+    });
+
+    return parseJson<LiquidationCandidatesResponse>(response);
+  } catch (error) {
+    warnApiReadFailure('/liquidation-candidates', error);
+
+    return EMPTY_LIQUIDATION_CANDIDATES_RESPONSE;
   }
 }
 

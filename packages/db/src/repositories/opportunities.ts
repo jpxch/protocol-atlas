@@ -1,7 +1,22 @@
-import { and, desc, eq } from 'drizzle-orm';
-import type { OpportunityRecord } from '@protocol-atlas/core';
+import { and, desc, eq, sql } from 'drizzle-orm';
+import type {
+  ChainKey,
+  OpportunityRecord,
+  OpportunitySignal,
+  OpportunityStatus,
+  RiskLevel,
+} from '@protocol-atlas/core';
 import type { DatabaseClient } from '../client.js';
 import { opportunities } from '../schema/opportunities.js';
+
+export interface ListLiquidationCandidatesInput {
+  readonly chain?: ChainKey;
+  readonly protocolKey?: string;
+  readonly status?: OpportunityStatus;
+  readonly riskLevel?: RiskLevel;
+  readonly signal?: OpportunitySignal;
+  readonly limit?: number;
+}
 
 function mapOpportunityRow(row: typeof opportunities.$inferSelect): OpportunityRecord {
   return {
@@ -55,6 +70,45 @@ export async function listOpportunities(db: DatabaseClient): Promise<Opportunity
     .from(opportunities)
     .orderBy(desc(opportunities.updatedAt))
     .limit(100);
+
+  return rows.map(mapOpportunityRow);
+}
+
+export async function listLiquidationCandidates(
+  db: DatabaseClient,
+  input: ListLiquidationCandidatesInput = {},
+): Promise<OpportunityRecord[]> {
+  const conditions = [eq(opportunities.kind, 'liquidation' as const)];
+  const limit = input.limit ?? 100;
+
+  if (input.chain) {
+    conditions.push(eq(opportunities.chain, input.chain));
+  }
+
+  if (input.protocolKey) {
+    conditions.push(eq(opportunities.protocolKey, input.protocolKey));
+  }
+
+  if (input.status) {
+    conditions.push(eq(opportunities.status, input.status));
+  }
+
+  if (input.riskLevel) {
+    conditions.push(eq(opportunities.riskLevel, input.riskLevel));
+  }
+
+  if (input.signal) {
+    conditions.push(
+      sql`${opportunities.payload}->'marketSignal'->>'classification' = ${input.signal}`,
+    );
+  }
+
+  const rows = await db
+    .select()
+    .from(opportunities)
+    .where(and(...conditions))
+    .orderBy(desc(opportunities.updatedAt))
+    .limit(limit);
 
   return rows.map(mapOpportunityRow);
 }
