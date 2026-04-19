@@ -2,19 +2,20 @@
 
 Last updated: 2026-04-18
 
-## Purpose (Grounding Contract)
+## Purpose
 
-This file is the source-of-truth context for ongoing work on Protocol Atlas.
+Protocol Atlas is a permissionless onchain opportunity intelligence and operations platform.
 
-- `protocol-atlas` is a permissionless onchain opportunity intelligence and operations platform.
-- Its core question is: what permissionless onchain opportunities currently exist, which are worth action, and how should an operator respond?
-- It is not a wallet scavenger, an unauthorized recovery tool, a generic portfolio dashboard, a browser signing frontend, or an AI-only protocol-state guesser.
-- Scope includes:
-  - deterministic protocol and chain reads
-  - opportunity discovery, normalization, persistence, review, and operator workflows
-  - backend-controlled simulation, approval, auditing, and future execution pathways
-- The project owns core scanning contracts, persistence, APIs, operator UI, action-request workflows, audit records, and future execution services.
-- Keep phase status aligned with real code, docs, and the current working tree.
+Its core question is: what permissionless onchain opportunities currently exist, which are worth action, and how should an operator respond?
+
+Protocol Atlas is not a wallet scavenger, unauthorized recovery tool, generic portfolio dashboard, browser signing frontend, or AI-only protocol-state guesser.
+
+Scope includes:
+
+- deterministic protocol and chain reads
+- opportunity discovery, normalization, persistence, review, and operator workflows
+- backend-controlled simulation, approval, auditing, and future execution pathways
+- operator-facing visibility into scanner output, opportunities, action requests, and history
 
 Protocol Atlas is deterministic-first. RPC reads, protocol adapters, simulations, persisted records, and audited backend workflows outrank AI interpretation. AI may summarize, rank, explain, or assist review language, but it must never become the authority for protocol state, safety gates, or execution approval.
 
@@ -22,7 +23,7 @@ Protocol Atlas is deterministic-first. RPC reads, protocol adapters, simulations
 
 The product is designed for a two-person workflow:
 
-- Builder: owns architecture, protocol adapters, database design, backend APIs, scanner logic, simulation paths, execution planning, and hardening.
+- Builder: owns architecture, protocol adapters, database design, backend APIs, scanner logic, simulation paths, execution planning, deployment, and hardening.
 - Operator: monitors opportunities, reviews system output, uses the browser dashboard, approves or skips actions, observes outcomes, and reports anomalies.
 
 The browser is an operator interface, not a trusted execution surface. UI buttons may request work, but backend workflows own validation, auditability, simulation, execution gating, attribution, and future signing or execution behavior.
@@ -58,22 +59,199 @@ The UI direction is:
 
 Avoid Tailwind redesigns, pastel SaaS styling, generic admin templates, casino energy, crypto hype language, toy affordances, or meme-heavy branding. The emotional target is confidence, not hype.
 
-## Deployment Target (Current)
+## Current Runtime Snapshot
 
-- Primary current runtime target is local development.
-- Root workspace is managed with pnpm workspaces and Turbo.
-- Runtime configuration remains environment-driven:
-  - `DATABASE_URL`
-  - `REDIS_URL`
-  - `ETHEREUM_RPC_URL`
-  - `ARBITRUM_RPC_URL`
-  - `OPTIMISM_RPC_URL`
-  - `BASE_RPC_URL`
-  - `POLYGON_RPC_URL`
-  - `OPENAI_API_KEY`
-  - `API_PORT`
-  - `NEXT_PUBLIC_API_BASE_URL`
-- Keep deployment docs environment-specific, but keep code paths portable where possible.
+Validated on 2026-04-18 from the local repo and `continuum-mini`.
+
+Repository:
+
+- Branch: `main`
+- Current commit: `e67f1cf feat: expose watchlist targets route`
+- Remote: `git@github.com:jpxch/protocol-atlas.git`
+- Package manager: `pnpm@10.28.2`
+- Workspace runner: Turbo
+- Language: TypeScript
+
+Implemented packages and apps:
+
+- `packages/core`: domain contracts for chains, opportunities, reviews, provider ports, and scanner interfaces.
+- `packages/db`: Drizzle client, schema, and repositories.
+- `apps/api`: Fastify API with health, opportunity, audit-event, operator-action, and watchlist-target routes.
+- `apps/operator-web`: Next.js operator UI with dashboard, opportunities board, same-origin proxy routes, SCSS modules, and ECharts.
+- `services/scanner-worker`: Aave V3 Arbitrum health-factor watch scanner.
+
+Implemented database tables:
+
+- `opportunities`
+- `reviews`
+- `scan_runs`
+- `operator_actions`
+- `audit_events`
+- `watchlist_targets`
+
+Implemented API routes:
+
+- `GET /health`
+- `GET /opportunities`
+- `GET /audit-events`
+- `POST /operator-actions`
+- `GET /watchlist-targets`
+
+Implemented web routes:
+
+- `GET /`
+- `GET /opportunities`
+- `POST /api/operator-actions`
+- `GET /watchlist-targets`
+- `GET /api/watchlist-targets`
+
+Current deployment on `continuum-mini`:
+
+- App path: `/opt/protocol-atlas`
+- DB: `protocol_atlas` database and `protocol_atlas` role inside the existing `riotcore-postgres` container.
+- API service: `protocol-atlas-api.service`, user-level systemd, port `4000`.
+- Web service: `protocol-atlas-web.service`, user-level systemd, port `3000`.
+- Scanner timer: `protocol-atlas-scanner.timer`, user-level systemd, every 5 minutes.
+- Scanner job: `protocol-atlas-scanner.service`, one-shot worker.
+- User linger is enabled for `jpxch`, so services keep running after logout.
+
+Current deployed checks:
+
+- `http://127.0.0.1:4000/health` returns `200`.
+- `http://127.0.0.1:4000/watchlist-targets?limit=1` returns persisted Aave watchlist data.
+- `http://127.0.0.1:3000/watchlist-targets?limit=1` proxies the same watchlist data.
+- `http://192.168.0.74:3000` is reachable on the LAN.
+- API and web systemd units are active.
+- Scanner timer is active and has completed recurring runs.
+
+Most recent scanner observations:
+
+- Aave V3 Arbitrum watchlist discovery is live.
+- `watchlist_targets` has hundreds of persisted targets.
+- Recent scanner runs have completed successfully with zero discovered opportunities.
+- Some account reads can fail transiently; scanner now records `failedTargets` and continues rather than failing the whole run.
+
+## Project Tree
+
+Source-focused snapshot. Generated and dependency directories such as `node_modules`, `.next`, `dist`, and `*.tsbuildinfo` are intentionally omitted.
+
+```text
+protocol-atlas/
+├── apps/
+│   ├── api/
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── src/
+│   │       ├── app.ts
+│   │       ├── env.ts
+│   │       ├── server.ts
+│   │       └── routes/
+│   │           ├── audit-events.ts
+│   │           ├── health.ts
+│   │           ├── operator-actions.ts
+│   │           ├── opportunities.ts
+│   │           └── watchlist-targets.ts
+│   └── operator-web/
+│       ├── next.config.mts
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── src/
+│           ├── app/
+│           │   ├── globals.scss
+│           │   ├── layout.tsx
+│           │   ├── page.tsx
+│           │   ├── api/
+│           │   │   ├── operator-actions/route.ts
+│           │   │   └── watchlist-targets/route.ts
+│           │   ├── opportunities/page.tsx
+│           │   └── watchlist-targets/route.ts
+│           ├── components/
+│           │   ├── dashboard/
+│           │   │   ├── ActivityPanel.tsx
+│           │   │   ├── ChartPanel.tsx
+│           │   │   ├── MetricCard.tsx
+│           │   │   └── OpportunityFlowChart.client.tsx
+│           │   ├── opportunities/
+│           │   │   └── OpportunityTable.tsx
+│           │   └── shell/
+│           │       ├── AppShell.tsx
+│           │       ├── AtlasShell.tsx
+│           │       ├── Sidebar.tsx
+│           │       └── Topbar.tsx
+│           ├── features/
+│           │   ├── dashboard/DashboardScreen.tsx
+│           │   └── opportunities/OpportunitiesBoard.tsx
+│           ├── lib/
+│           │   └── api.ts
+│           ├── styles/
+│           │   ├── foundations/
+│           │   │   ├── _base.scss
+│           │   │   ├── _reset.scss
+│           │   │   └── _utilities.scss
+│           │   └── tokens/
+│           │       ├── _colors.scss
+│           │       ├── _motion.scss
+│           │       ├── _radius.scss
+│           │       ├── _shadows.scss
+│           │       ├── _spacing.scss
+│           │       └── _typography.scss
+│           └── types/
+│               ├── api.ts
+│               ├── dashboard.ts
+│               └── opportunities.ts
+├── packages/
+│   ├── core/
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── src/
+│   │       ├── index.ts
+│   │       ├── domain/
+│   │       │   ├── chain.ts
+│   │       │   ├── opportunity.ts
+│   │       │   └── review.ts
+│   │       ├── providers/
+│   │       │   └── provider.ts
+│   │       └── scanners/
+│   │           └── scanner.ts
+│   └── db/
+│       ├── drizzle.config.ts
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── src/
+│           ├── client.ts
+│           ├── index.ts
+│           ├── repositories/
+│           │   ├── audit-events.ts
+│           │   ├── operator-actions.ts
+│           │   ├── opportunities.ts
+│           │   ├── scan-runs.ts
+│           │   └── watchlist-targets.ts
+│           └── schema/
+│               ├── audit-events.ts
+│               ├── index.ts
+│               ├── operator-actions.ts
+│               ├── opportunities.ts
+│               ├── reviews.ts
+│               ├── scan-runs.ts
+│               └── watchlist-targets.ts
+├── services/
+│   └── scanner-worker/
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── src/
+│           ├── env.ts
+│           ├── index.ts
+│           └── scanners/
+│               └── aave-v3-health-factor-watch.ts
+├── .env.example
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── ROADMAP.md
+├── tsconfig.base.json
+├── tsconfig.json
+└── turbo.json
+```
 
 ## Chosen Stack
 
@@ -81,250 +259,277 @@ Avoid Tailwind redesigns, pastel SaaS styling, generic admin templates, casino e
 - Frontend: Next.js + React + TypeScript + custom SCSS Modules
 - Backend API: Fastify + TypeScript + Zod
 - Database: PostgreSQL + Drizzle ORM
-- Queue/jobs: Redis + BullMQ
 - Onchain client: viem
+- Protocol dependency: `@aave/core-v3`
 - Charts: Apache ECharts
-- Frontend data/state: TanStack Query + Zustand
+- Runtime services: user-level systemd on `continuum-mini`
 - Rust: reserved for later extraction of latency-sensitive or execution-critical services only
+
+Deferred or not yet active:
+
+- Redis / BullMQ job queue
+- TanStack Query / Zustand frontend state layer
+- OpenAI-assisted review service
+- Execution worker
 
 Do not introduce Tailwind as the default styling system. The operator UI should continue through custom SCSS Modules, shared tokens, and the existing Atlas design language.
 
 ## Architecture Model
 
-Intended high-level architecture:
+Current architecture:
+
+```text
+[ Aave Scanner Worker ] ---> [ PostgreSQL / Drizzle ] ---> [ Fastify API ] ---> [ Next Operator UI ]
+          |                            |
+          |                            +--> [ Audit Events / Operator Actions ]
+          |
+          +--> [ Arbitrum RPC / Aave V3 Pool ]
+```
+
+Intended architecture:
 
 ```text
 [ Core Engine ] -> [ Persistence Layer ] -> [ API Platform ] -> [ Operator Interface ]
                                   \
-                                   -> [ Future Execution Service ]
+                                   -> [ Simulation / Review / Future Execution Services ]
 ```
 
 Near-term work should optimize for correctness, protocol contracts, persistence, operator usefulness, review surfaces, safety gates, and audit history.
 
-Do not optimize day-one work around full autonomy, mempool warfare, Rust-everywhere, browser-only behavior, or AI-led truth.
-
-## Verified Status Snapshot
-
-Validated from the repo and current working tree on 2026-04-18 unless otherwise noted:
-
-- `git status --short` cannot run from `/mnt/continuum/Projects/protocol-atlas`; this path is not currently detected as a Git repository.
-- Active branch and latest commit are unavailable until the workspace is initialized as or moved into a Git repository.
-- `.env.example` exists and defines database, Redis, RPC endpoint, OpenAI, API, and operator-web runtime variables.
-- Root workspace files exist:
-  - `package.json`
-  - `pnpm-workspace.yaml`
-  - `turbo.json`
-  - `tsconfig.base.json`
-  - `tsconfig.json`
-  - `.gitignore`
-  - `.env.example`
-- Current workspace directories exist:
-  - `apps/api`
-  - `apps/operator-web`
-  - `packages/core`
-  - `packages/db`
-  - `packages/shared`
-  - `services/scanner-worker`
-  - `services/executor-worker`
-  - `services/ai-review`
-  - `docs`
-  - `infra`
-- `apps/api`, `packages/core`, `packages/db`, `packages/shared`, and service packages are present as directories but do not yet contain tracked source files in the current scaffold.
-- `apps/operator-web` is the active implementation surface.
-- The operator web app currently includes:
-  - Next.js app routes for `/` and `/opportunities`
-  - shell components: `AppShell`, `Sidebar`, `Topbar`
-  - dashboard components: `MetricCard`, `ChartPanel`, `ActivityPanel`, `OpportunityFlowChart`
-  - feature composition: `src/features/dashboard/DashboardScreen.tsx`
-  - typed dashboard chart data in `src/types/dashboard.ts`
-  - SCSS foundations and token files
-- `DashboardScreen` is correctly treated as a feature-level composition, not a low-level reusable component.
-- Apache ECharts is already installed and wired through `OpportunityFlowChart.client.tsx`.
-- Current tests status:
-  - no test files are visible in the repo snapshot
-  - root `test` script exists through Turbo but package-level test coverage is not yet established
-- Current docs status:
-  - `docs/` exists
-  - no source docs are visible in the repo snapshot
-  - this roadmap is the first local intent/status contract in the current reset
-- Current local verification:
-  - `pnpm --filter @protocol-atlas/operator-web typecheck` could not run because `pnpm` is not on the shell PATH
-  - `./node_modules/.bin/tsc -p apps/operator-web/tsconfig.json --noEmit` succeeds after allowing TypeScript to write `apps/operator-web/tsconfig.tsbuildinfo`
-- Remaining visible gaps:
-  - workspace is not currently Git-detectable from this path
-  - backend API is not scaffolded beyond its directory
-  - persistence schema and migrations are not implemented
-  - core scanner/domain contracts are not implemented
-  - opportunity table, filters, action workflow UI, and detail/case-file view are not implemented
-  - audit event model is not implemented
-  - auth and role-boundary skeletons are not implemented
-
-Implemented APIs / Interfaces:
-
-- `OpportunityFlowPoint`
-- `OpportunityFlowChartProps`
-- dashboard route `/`
-- opportunities placeholder route `/opportunities`
-
-Implemented core services / modules:
-
-- Operator web shell:
-  - `apps/operator-web/src/components/shell/AppShell.tsx`
-  - `apps/operator-web/src/components/shell/Sidebar.tsx`
-  - `apps/operator-web/src/components/shell/Topbar.tsx`
-- Dashboard UI:
-  - `apps/operator-web/src/features/dashboard/DashboardScreen.tsx`
-  - `apps/operator-web/src/components/dashboard/MetricCard.tsx`
-  - `apps/operator-web/src/components/dashboard/ChartPanel.tsx`
-  - `apps/operator-web/src/components/dashboard/ActivityPanel.tsx`
-  - `apps/operator-web/src/components/dashboard/OpportunityFlowChart.client.tsx`
-- Styling system:
-  - `apps/operator-web/src/app/globals.scss`
-  - `apps/operator-web/src/styles/foundations`
-  - `apps/operator-web/src/styles/tokens`
-
-Current system direction:
-
-Protocol Atlas is in a clean reset state with the monorepo foundation and operator-web shell underway. The immediate product surface is the dashboard command deck: real ECharts wiring now exists, but data is still static and should move toward typed API-backed contracts. The next engineering priority is to connect the UI to real backend, persistence, audit, and scanner contracts without weakening the deterministic-first and backend-controlled execution doctrine.
-
-## Git Status And Direction
-
-Current git status:
-
-- Active branch: unavailable from this workspace path
-- Working tree: unavailable from Git; filesystem contains a local scaffold and installed dependencies
-- Latest commit before this roadmap refresh: unavailable from this workspace path
-
-Required direction:
-
-1. Initialize or reconnect Git context so roadmap status, branches, commits, and diffs are auditable.
-2. Stabilize the operator dashboard data contracts and chart/table surfaces.
-3. Scaffold the backend API with health, opportunities read, and action-request skeleton endpoints.
-4. Scaffold persistence with first Drizzle schema and migration flow.
-5. Scaffold core scanner/domain contracts before adding protocol-specific behavior.
-6. Preserve backend-only execution and first-class audit events for every meaningful operator action.
+Do not optimize near-term work around full autonomy, mempool warfare, Rust-everywhere, browser-only behavior, or AI-led truth.
 
 ## Reality-Checked Phase Status
 
 | Phase | Name | Status | Notes |
 |---|---|---|---|
-| 0 | Identity & Foundation | In Progress | Monorepo foundation and env example exist; Git context and docs set need alignment. |
-| 1 | Core Engine | Not Started | `packages/core` exists but chain models, provider interfaces, opportunity models, review models, and scanner contracts are not implemented. |
-| 2 | Persistence Layer | Not Started | `packages/db` exists but Drizzle schema, migrations, and DB connectivity checks are not implemented. |
-| 3 | API Platform | Not Started | `apps/api` exists but Fastify app, health endpoint, opportunity reads, action requests, and auth skeleton are not implemented. |
-| 4 | Operator Dashboard | In Progress | Next.js app shell, dashboard screen, custom SCSS system, metric cards, panels, and ECharts chart exist with static data. |
-| 5 | Manual Action Workflow | Not Started | Rescan, refresh review, simulate, approve, skip, and execute request flows are not yet modeled end to end. |
-| 6 | Execution Engine | Not Started | Future backend execution path is doctrine-level only; no executor contracts or safety gates are implemented. |
-| 7 | Rust Service Introduction | Not Started | Rust remains intentionally deferred until a measured need exists. |
-| 8 | Hardening & Operations | Not Started | Auth, secrets posture verification, observability, audit retention, and operational runbooks are not yet implemented. |
+| 0 | Identity & Foundation | Mostly Complete | Monorepo, pnpm, Turbo, TypeScript, Git, env conventions, deployment target, and doctrine are in place. README/security/runbooks still need expansion. |
+| 1 | Core Engine | In Progress | Chain, opportunity, review, provider, and scanner contracts exist. More protocol adapter structure and tests are needed. |
+| 2 | Persistence Layer | In Progress | Drizzle schema and repositories exist for core records, action requests, audit events, scan runs, and watchlist targets. Migration/backup/retention procedure still needs hardening. |
+| 3 | API Platform | In Progress | Fastify app exposes health, opportunities, audit events, operator actions, and watchlist targets. Auth, pagination, error shape, and readiness checks remain open. |
+| 4 | Operator Dashboard | In Progress | Dashboard and opportunity board are API-backed. Watchlist JSON proxy exists. Case-file/detail views and richer action UX remain open. |
+| 5 | Manual Action Workflow | Started | Operator action requests are persisted. Backend lifecycle, stale-data checks, simulation prerequisites, and audit event fanout need work. |
+| 6 | Execution Engine | Not Started | Future backend execution path remains doctrine-level only. No executor contracts, signing, simulation, or safety gates are implemented. |
+| 7 | Rust Service Introduction | Deferred | Rust remains intentionally deferred until a measured need exists. |
+| 8 | Hardening & Operations | Started | Mini deployment exists with API/web services and scanner timer. Still missing runbooks, firewall notes, backups, monitoring, log retention, and service update docs. |
+
+## Implemented Interfaces And Modules
+
+Core:
+
+- `ChainKey`
+- `ChainDefinition`
+- `OpportunityRecord`
+- `OpportunityStatus`
+- `OpportunityKind`
+- `RiskLevel`
+- `FreshnessState`
+- `ReviewRecord`
+- `ProtocolScanner`
+- `ProtocolScannerContext`
+- `ScanRunResult`
+
+Database:
+
+- `createDatabaseClient`
+- `createDatabaseConnection`
+- `createPgPool`
+- `sql` re-export from `drizzle-orm`
+- opportunity repository
+- scan-run repository
+- operator-action repository
+- audit-event repository
+- watchlist-target repository
+
+API:
+
+- `buildApp`
+- `registerHealthRoutes`
+- `registerOpportunityRoutes`
+- `registerAuditEventRoutes`
+- `registerOperatorActionRoutes`
+- `registerWatchlistTargetRoutes`
+
+Scanner:
+
+- `getScannerEnv`
+- `runAaveV3HealthFactorWatchScanner`
+- Aave V3 Borrow log discovery
+- watchlist target upsert
+- Aave `getUserAccountData` reads
+- health-factor threshold filtering
+- non-fatal per-target read failure handling
+- scan-run completion/failure recording
+
+Operator web:
+
+- `AppShell`
+- `Sidebar`
+- `Topbar`
+- `DashboardScreen`
+- `OpportunitiesBoard`
+- `OpportunityTable`
+- `MetricCard`
+- `ChartPanel`
+- `ActivityPanel`
+- `OpportunityFlowChart`
+- API read helpers with empty-state fallback
+- same-origin operator-action proxy
+- same-origin watchlist-target proxy
+
+## Current Gaps
+
+Product and UX:
+
+- No dedicated watchlist UI page yet; `/watchlist-targets` currently returns JSON through the web proxy.
+- No opportunity detail / case-file page.
+- No operator action history panel scoped to an opportunity.
+- No review refresh or simulation result UI.
+- Dashboard copy still references some future capabilities.
+
+API and data:
+
+- No auth or role boundary.
+- No pagination/cursor contract for large tables.
+- No stable API error envelope.
+- No readiness endpoint separate from `/health`.
+- No API route for scan-run history.
+- No API route for operator action history by opportunity.
+- No retention policy for `audit_events`, `scan_runs`, or `watchlist_targets`.
+
+Scanner:
+
+- Aave scanner reads targets sequentially.
+- Aave scanner only covers Arbitrum V3 and liquidation-style health factor monitoring.
+- USD normalization is explicitly deferred.
+- Discovery is based on recent Borrow logs and persisted watchlist targets.
+- No queue layer yet.
+
+Operations:
+
+- `continuum-mini` services are user-level systemd units, not system services, because sudo requires an interactive password.
+- LAN UI access works on port `3000`; direct API access on `4000` depends on firewall state.
+- No documented deployment/update script yet.
+- No backup or restore procedure for the `protocol_atlas` database.
+- No automated log pruning or table retention job.
+- Root disk on the mini is usable but tight and should be watched.
+
+Testing:
+
+- TypeScript builds are the main verification path today.
+- No unit/integration test suite is established.
+- No scanner fixture tests.
+- No API route tests.
+- No operator-web component tests.
+
+## Verification Commands
+
+Local:
+
+```bash
+./node_modules/.bin/tsc -b apps/api/tsconfig.json --pretty false
+./node_modules/.bin/tsc -p apps/operator-web/tsconfig.json --noEmit
+./node_modules/.bin/tsc -b services/scanner-worker/tsconfig.json --pretty false
+./node_modules/.bin/tsc -b packages/core packages/db --pretty false
+```
+
+Mini:
+
+```bash
+ssh continuum-mini
+cd /opt/protocol-atlas
+git status --short
+git pull --ff-only
+pnpm --filter @protocol-atlas/api build
+pnpm --filter @protocol-atlas/operator-web build
+pnpm --filter @protocol-atlas/scanner-worker build
+systemctl --user restart protocol-atlas-api.service protocol-atlas-web.service
+```
+
+Runtime checks:
+
+```bash
+curl 'http://127.0.0.1:4000/health'
+curl 'http://127.0.0.1:4000/opportunities'
+curl 'http://127.0.0.1:4000/watchlist-targets?limit=2'
+curl 'http://127.0.0.1:3000/watchlist-targets?limit=2'
+systemctl --user status protocol-atlas-api.service
+systemctl --user status protocol-atlas-web.service
+systemctl --user list-timers 'protocol-atlas*'
+```
 
 ## Next Milestone Checklist
 
-### Suggested Immediate Next Step
+### Milestone A: Make The Deployed System Boring
 
-- [ ] Reconnect or initialize Git context for `/mnt/continuum/Projects/protocol-atlas`.
-- [ ] Confirm `pnpm` availability in the development shell.
-- [ ] Add package manifests for scaffolded workspaces that will be built soon.
-- [ ] Keep `DashboardScreen` in `src/features/dashboard/`.
-- [ ] Keep reusable dashboard primitives in `src/components/dashboard/`.
-- [ ] Run frontend typecheck after each dashboard change.
+- [ ] Add `docs/ops/continuum-mini.md` with install, update, service, log, and firewall notes.
+- [ ] Add production `start` scripts for API and scanner so systemd units do not depend on dist path details.
+- [ ] Add a simple deploy/update script for `/opt/protocol-atlas`.
+- [ ] Document the user-level systemd units and why they are user services.
+- [ ] Document DB creation, Drizzle push, backup, restore, and retention.
+- [ ] Add a readiness endpoint that checks DB connectivity.
+- [ ] Add scanner run history API route.
+- [ ] Add basic log and disk cleanup guidance for the mini.
 
-### Phase 0 Closure (Identity & Foundation)
+### Milestone B: Make Watchlists Operator-Visible
 
-- [ ] Add or restore README, ARCHITECTURE, SECURITY, and IDENTITY docs.
-- [ ] Record deterministic-first, backend-only execution, and auditability as explicit contracts.
-- [ ] Document local startup expectations for database, Redis, API, and operator web.
-- [ ] Confirm Git branch, status, and initial commit state.
-- [ ] Add workspace package manifests for `apps/api`, `packages/core`, `packages/db`, `packages/shared`, and service workspaces as they become active.
+- [ ] Build a real watchlist page instead of JSON-only `/watchlist-targets`.
+- [ ] Add filters for chain, protocol, source, active state, and address search.
+- [ ] Add counts for active targets, newly discovered targets, stale targets, and failed reads.
+- [ ] Link watchlist targets to related opportunities when present.
+- [ ] Add API pagination for watchlist targets.
+- [ ] Add scan-run metadata display for discovered/persisted/failed counts.
 
-### Phase 1 Kickoff (Core Engine)
+### Milestone C: Harden Opportunity Review
 
-- [ ] Add chain/network model.
-- [ ] Add provider interface for deterministic RPC/protocol reads.
-- [ ] Add opportunity model family.
-- [ ] Add review model family.
-- [ ] Add scanner contract.
-- [ ] Add focused tests for model validation and scanner contract behavior.
-
-### Phase 2 Kickoff (Persistence Layer)
-
-- [ ] Scaffold `packages/db` as a real TypeScript package.
-- [ ] Add Drizzle configuration.
-- [ ] Define first schema:
-  - opportunities
-  - reviews
-  - scan_runs
-  - operator_actions
-  - audit_events
-- [ ] Add migration command and local migration documentation.
-- [ ] Verify local PostgreSQL connectivity through `DATABASE_URL`.
-
-### Phase 3 Kickoff (API Platform)
-
-- [ ] Scaffold `apps/api` as a Fastify TypeScript package.
-- [ ] Add `/health` endpoint.
-- [ ] Add opportunities read endpoint.
-- [ ] Add action request skeleton endpoint.
-- [ ] Add auth placeholder and role boundary skeleton.
-- [ ] Validate request/response contracts with Zod.
-
-### Phase 4 Continuation (Operator Dashboard)
-
-- [ ] Replace static dashboard data with typed API-facing contracts.
-- [ ] Keep ECharts integration client-only and typed.
-- [ ] Build opportunity table component.
-- [ ] Add filters, status pills, and action column.
-- [ ] Build opportunity detail / case-file view.
-- [ ] Add action buttons for rescan, refresh review, simulate, approve, skip, and future execute requests.
-- [ ] Ensure all action buttons map to backend workflows, not direct browser execution.
-
-### Phase 5 Kickoff (Manual Action Workflow)
-
-- [ ] Model operator action request lifecycle.
-- [ ] Persist every meaningful action to `operator_actions` and/or `audit_events`.
-- [ ] Add stale data checks before action requests.
-- [ ] Require simulation before approval where applicable.
+- [ ] Build opportunity detail / case-file route.
+- [ ] Add action history by opportunity.
+- [ ] Persist audit events when operator actions are requested.
+- [ ] Add stale-data checks before accepting simulate/approve requests.
 - [ ] Add skip reason capture.
-- [ ] Add review refresh history.
+- [ ] Add review refresh lifecycle.
+- [ ] Define simulation-required statuses.
 
-### Phase 6 Gate (Execution Engine)
+### Milestone D: Improve Scanner Correctness
 
-- [ ] Define execution intent contract separately from opportunity state.
-- [ ] Define simulation result contract.
+- [ ] Add fixture tests for Borrow log extraction.
+- [ ] Add fixture tests for Aave account-data mapping.
+- [ ] Add bounded concurrency for target account reads.
+- [ ] Add retry/backoff policy for transient RPC failures.
+- [ ] Add scanner config documentation for discovery window, max logs, and threshold.
+- [ ] Add scan-run API endpoint and UI panel.
+- [ ] Add retention/expiry behavior for inactive watchlist targets.
+
+### Milestone E: Prepare Simulation And Execution Contracts
+
+- [ ] Define simulation intent contract separately from opportunity state.
+- [ ] Define simulation result schema.
 - [ ] Define backend-only approval gate.
 - [ ] Define execution attempt and outcome records.
 - [ ] Keep all signing credentials backend-only.
 - [ ] Add failure, retry, and blocked-state audit events.
 
-### Phase 7 Gate (Rust Service Introduction)
-
-- [ ] Identify a concrete latency-sensitive or execution-critical bottleneck.
-- [ ] Prove TypeScript service boundary first.
-- [ ] Define stable service contract before extraction.
-- [ ] Add cross-language tests or fixtures before production use.
-
-### Phase 8 Gate (Hardening & Operations)
-
-- [ ] Add structured logging.
-- [ ] Add health and readiness checks.
-- [ ] Add secrets handling documentation.
-- [ ] Add audit retention expectations.
-- [ ] Add backup and migration procedures.
-- [ ] Add operational runbooks for scanner, API, worker, and executor failures.
-
 ## Git Workflow Guardrails
 
 Use this workflow for every roadmap item unless explicitly overridden:
 
-- [ ] Create work only on topic branches (`feature/*`, `fix/*`, `chore/*`, `docs/*`) once Git context exists.
-- [ ] Keep branch scope aligned to one roadmap unit.
-- [ ] Rebase or merge `main` before finalizing work.
-- [ ] Open a PR for every branch with purpose, verification, and deferred follow-ups.
-- [ ] Require passing checks before merge.
-- [ ] Prefer squash merge unless there is a reason not to.
-- [ ] Delete merged branches after merge.
-- [ ] Tag significant milestones on `main`.
-- [ ] If scope changes mid-branch, cut a new branch for unrelated work.
+- Work on topic branches (`feature/*`, `fix/*`, `chore/*`, `docs/*`) for larger changes.
+- Keep branch scope aligned to one roadmap unit.
+- Rebase or merge `main` before finalizing work.
+- Open a PR for changes that touch service contracts, schema, deployment, or UI behavior.
+- Include purpose, verification, and deferred follow-ups in PR descriptions.
+- Require passing checks before merge once CI exists.
+- Prefer squash merge unless there is a reason not to.
+- Delete merged branches after merge.
+- Tag significant milestones on `main`.
+- If scope changes mid-branch, cut a new branch for unrelated work.
+
+For the deployed mini:
+
+- Keep `/opt/protocol-atlas` Git-clean before `git pull`.
+- Prefer commit/push/pull over copying files directly.
+- Rebuild affected packages after pulling.
+- Restart only affected services when possible.
+- Verify HTTP routes and systemd status after restarts.
 
 ## AI Collaboration Rules
 
@@ -343,4 +548,4 @@ Another AI helping on this project must:
 - avoid browser wallet signing as the privileged platform execution path
 - keep reusable components in `components`
 - keep page/domain compositions in `features`
-
+- keep `/opt/protocol-atlas` deploys reproducible through Git whenever possible
