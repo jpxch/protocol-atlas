@@ -144,7 +144,7 @@ Most recent scanner observations:
 - `watchlist_targets` has hundreds of persisted targets.
 - Scanner opportunities now distinguish `actionable`, `low-margin`, and `watch-close` liquidation signals.
 - Scanner-promoted candidates now get a persisted liquidation plan selecting the current best debt/collateral reserve pair.
-- Scanner account reads are capped by `AAVE_V3_WATCH_TARGET_LIMIT` to avoid RPC 429s while the watchlist grows.
+- Scanner account reads are capped by `AAVE_V3_WATCH_TARGET_LIMIT`, and scans stop early after repeated 429s to avoid grinding RPC quota.
 - Some account reads can fail transiently; scanner now records `failedTargets` and continues rather than failing the whole run.
 
 ## Project Tree
@@ -454,7 +454,7 @@ Scanner:
 - Aave scanner only covers Arbitrum V3 and liquidation-style health factor monitoring.
 - USD normalization is candidate-level using Aave base currency totals; reserve-level asset path normalization is still deferred.
 - Discovery is based on recent Borrow logs and persisted watchlist targets.
-- Per-run watch target reads are capped; a smarter hot/cold target scheduler is still needed.
+- Per-run watch target reads are capped and rate-limit circuit-broken; a smarter hot/cold target scheduler is still needed.
 - No DEX quote, exact gas simulation, or priority-fee bidding model yet.
 - Flashloan premium is read from Aave and gas is priced from the live RPC gas price; swap slippage and priority fee are still conservative placeholders.
 - No queue layer yet.
@@ -561,6 +561,7 @@ systemctl --user list-timers 'protocol-atlas*'
 - [ ] Add scanner config documentation for discovery window, max logs, and threshold.
 - [x] Add scan-run API endpoint and UI panel.
 - [x] Add configurable watch target cap for RPC quota control.
+- [x] Add rate-limit circuit breaker for scanner target reads.
 - [ ] Add retention/expiry behavior for inactive watchlist targets.
 
 ### Milestone E: Prepare Simulation And Execution Contracts

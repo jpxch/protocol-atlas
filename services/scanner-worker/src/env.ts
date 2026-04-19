@@ -20,7 +20,7 @@ const scannerEnvSchema = z.object({
   AAVE_V3_HF_THRESHOLD: z.coerce.number().positive().default(1),
   AAVE_V3_DISCOVERY_BLOCK_WINDOW: z.coerce.number().int().positive().default(250000),
   AAVE_V3_DISCOVERY_MAX_LOGS: z.coerce.number().int().positive().default(2000),
-  AAVE_V3_WATCH_TARGET_LIMIT: z.coerce.number().int().positive().default(150),
+  AAVE_V3_WATCH_TARGET_LIMIT: z.coerce.number().int().positive().default(50),
 });
 
 export interface ScannerEnv {

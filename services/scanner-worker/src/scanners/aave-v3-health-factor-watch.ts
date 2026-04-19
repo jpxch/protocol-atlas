@@ -27,6 +27,7 @@ const LIQUIDATION_CLOSE_FACTOR = 0.5;
 const LIQUIDATION_BONUS_BPS = 500;
 const DEFAULT_GAS_COST_USD = 12;
 const MIN_NET_PROFIT_USD = 15;
+const MAX_RATE_LIMITED_TARGETS_PER_RUN = 5;
 
 function formatHealthFactor(value: bigint): number {
   return Number(value) / 1e18;
@@ -68,6 +69,12 @@ function bigintToDecimalNumber(value: bigint, decimals: number): number {
 
 function formatUsdString(value: number): string {
   return value.toFixed(2);
+}
+
+function isRateLimitError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return message.includes('429') || message.toLowerCase().includes('too many requests');
 }
 
 interface LiquidationEstimate {
@@ -373,6 +380,8 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
 
     const opportunities: OpportunityRecord[] = [];
     let failedTargets = 0;
+    let rateLimitedTargets = 0;
+    let stoppedForRateLimit = false;
 
     for (const target of watchTargets) {
       let result: unknown;
@@ -387,6 +396,10 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
       } catch (error) {
         failedTargets += 1;
 
+        if (isRateLimitError(error)) {
+          rateLimitedTargets += 1;
+        }
+
         console.warn(
           JSON.stringify({
             scannerKey: SCANNER_KEY,
@@ -396,6 +409,11 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
             error: error instanceof Error ? error.message : 'unknown target read failure',
           }),
         );
+
+        if (rateLimitedTargets >= MAX_RATE_LIMITED_TARGETS_PER_RUN) {
+          stoppedForRateLimit = true;
+          break;
+        }
 
         continue;
       }
@@ -502,6 +520,8 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         discoveredTargets: discoveredTargets.length,
         persistedTargets: watchTargets.length,
         failedTargets,
+        rateLimitedTargets,
+        stoppedForRateLimit,
         monitoringThreshold: env.aaveV3HealthFactorThreshold,
         watchTargetLimit: env.aaveV3WatchTargetLimit,
         actionableHealthFactorThreshold: ACTIONABLE_HEALTH_FACTOR_THRESHOLD,
@@ -523,6 +543,8 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
           discoveredTargets: discoveredTargets.length,
           persistedTargets: watchTargets.length,
           failedTargets,
+          rateLimitedTargets,
+          stoppedForRateLimit,
           watchTargetLimit: env.aaveV3WatchTargetLimit,
           opportunitiesFound: opportunities.length,
         },
