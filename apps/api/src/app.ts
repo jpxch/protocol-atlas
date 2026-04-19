@@ -5,6 +5,7 @@ import { registerAuditEventRoutes } from './routes/audit-events.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerOpportunityRoutes } from './routes/opportunities.js';
 import { registerOperatorActionRoutes } from './routes/operator-actions.js';
+import { registerScanRunRoutes } from './routes/scan-runs.js';
 import { registerWatchlistTargetRoutes } from './routes/watchlist-targets.js';
 
 export async function buildApp() {
@@ -22,6 +23,7 @@ export async function buildApp() {
   await registerAuditEventRoutes(app, db);
   await registerOperatorActionRoutes(app, db);
   await registerWatchlistTargetRoutes(app, db);
+  await registerScanRunRoutes(app, db);
 
   return { app, env };
 }

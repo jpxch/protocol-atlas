@@ -12,6 +12,7 @@ export type ApiOpportunityStatus =
 export type ApiFreshnessState = 'fresh' | 'aging' | 'stale';
 export type ApiRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type ApiChainKey = 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon';
+export type ApiScanRunStatus = 'started' | 'completed' | 'failed';
 
 export interface ApiOpportunityRecord {
   readonly id: string;
@@ -53,6 +54,56 @@ export interface ApiAuditEventRecord {
 export interface AuditEventsResponse {
   readonly items: ApiAuditEventRecord[];
   readonly count: number;
+}
+
+export interface ApiWatchlistTargetRecord {
+  readonly id: string;
+  readonly chain: ApiChainKey;
+  readonly protocolKey: string;
+  readonly source: string;
+  readonly isActive: boolean;
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
+}
+
+export interface WatchlistTargetsResponse {
+  readonly items: ApiWatchlistTargetRecord[];
+  readonly count: number;
+  readonly pagination: {
+    readonly limit: number;
+    readonly offset: number;
+    readonly returned: number;
+  };
+  readonly filters: {
+    readonly chain: ApiChainKey | null;
+    readonly protocolKey: string | null;
+    readonly source: string | null;
+    readonly isActive: boolean | null;
+    readonly search: string | null;
+  };
+}
+
+export interface ApiScanRunRecord {
+  readonly id: string;
+  readonly scannerKey: string;
+  readonly protocolKey: string;
+  readonly chain: ApiChainKey;
+  readonly status: ApiScanRunStatus;
+  readonly opportunitiesFound: number;
+  readonly metadata: Readonly<Record<string, unknown>>;
+  readonly startedAt: string;
+  readonly completedAt: string | null;
+}
+
+export interface ScanRunsResponse {
+  readonly items: ApiScanRunRecord[];
+  readonly count: number;
+  readonly filters: {
+    readonly chain: ApiChainKey | null;
+    readonly protocolKey: string | null;
+    readonly status: ApiScanRunStatus | null;
+  };
 }
 
 export type OperatorActionType = 'rescan' | 'refresh-review' | 'simulate' | 'approve' | 'skip';

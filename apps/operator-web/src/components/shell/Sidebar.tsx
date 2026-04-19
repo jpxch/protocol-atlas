@@ -15,6 +15,11 @@ const navItems = [
     title: 'Opportunities',
     meta: 'Review surfaced opportunities and request backend actions',
   },
+  {
+    href: '/watchlist',
+    title: 'Watchlist',
+    meta: 'Inspect tracked targets, filters, scan runs, and target freshness',
+  },
 ] as const;
 
 const protocols = [

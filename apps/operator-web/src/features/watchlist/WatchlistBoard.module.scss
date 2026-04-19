@@ -1,0 +1,375 @@
+.root {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.filtersPanel,
+.tablePanel,
+.scanRunsPanel,
+.notePanel,
+.metricCard {
+  border: 1px solid rgba(110, 138, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(18, 22, 33, 0.96), rgba(11, 14, 22, 0.98)), rgba(9, 12, 18, 0.92);
+}
+
+.filtersHeader,
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.filtersTitle,
+.panelTitle,
+.noteTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.filtersSubtitle,
+.panelSubtitle,
+.noteText {
+  margin: 0.4rem 0 0;
+  color: rgba(206, 214, 230, 0.76);
+  line-height: 1.55;
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(156, 175, 255, 0.78);
+}
+
+.input,
+.select {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.72rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(103, 129, 219, 0.22);
+  background: rgba(8, 11, 19, 0.92);
+  color: rgba(235, 240, 255, 0.94);
+  outline: none;
+}
+
+.input:focus,
+.select:focus {
+  border-color: rgba(107, 151, 255, 0.62);
+  box-shadow: 0 0 0 1px rgba(107, 151, 255, 0.28);
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 2.65rem;
+  padding: 0.72rem 1rem;
+  border-radius: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.primaryButton {
+  border: 1px solid rgba(79, 126, 255, 0.4);
+  background: linear-gradient(180deg, rgba(56, 95, 213, 0.98), rgba(39, 69, 168, 0.98));
+  color: white;
+}
+
+.secondaryButton {
+  border: 1px solid rgba(103, 129, 219, 0.22);
+  background: rgba(10, 14, 24, 0.88);
+  color: rgba(232, 238, 255, 0.92);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.primaryButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.resultMeta,
+.paginationMeta {
+  display: inline-flex;
+  gap: 0.85rem;
+  color: rgba(196, 205, 224, 0.78);
+  font-size: 0.92rem;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.metricCard {
+  padding: 1.15rem;
+  border-radius: 1rem;
+}
+
+.metricLabel {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(156, 175, 255, 0.76);
+}
+
+.metricValue {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.metricText {
+  margin: 0.6rem 0 0;
+  color: rgba(204, 213, 230, 0.74);
+  line-height: 1.5;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(320px, 0.95fr);
+  gap: 1rem;
+}
+
+.tablePanel,
+.scanRunsPanel,
+.notePanel,
+.filtersPanel {
+  padding: 1.2rem;
+  border-radius: 1rem;
+}
+
+.panelBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: rgba(65, 95, 180, 0.18);
+  border: 1px solid rgba(107, 151, 255, 0.18);
+  color: rgba(194, 211, 255, 0.88);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tableWrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.table th,
+.table td {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 1px solid rgba(98, 117, 167, 0.14);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(159, 178, 236, 0.78);
+}
+
+.table td {
+  color: rgba(234, 240, 255, 0.92);
+}
+
+.addressCell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.addressFull {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  color: rgba(195, 209, 255, 0.88);
+  word-break: break-all;
+}
+
+.addressShort {
+  display: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  color: rgba(195, 209, 255, 0.88);
+}
+
+.stateBadgeActive,
+.stateBadgeInactive,
+.runStatusCompleted,
+.runStatusFailed,
+.runStatusStarted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.stateBadgeActive,
+.runStatusCompleted {
+  background: rgba(48, 137, 91, 0.18);
+  border: 1px solid rgba(69, 168, 115, 0.22);
+  color: rgba(163, 237, 194, 0.94);
+}
+
+.stateBadgeInactive,
+.runStatusFailed {
+  background: rgba(168, 55, 55, 0.18);
+  border: 1px solid rgba(190, 70, 70, 0.24);
+  color: rgba(255, 191, 191, 0.94);
+}
+
+.runStatusStarted {
+  background: rgba(154, 112, 42, 0.18);
+  border: 1px solid rgba(192, 146, 69, 0.24);
+  color: rgba(255, 221, 162, 0.94);
+}
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.scanRunList {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.scanRunCard {
+  padding: 1rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(99, 122, 184, 0.16);
+  background: rgba(10, 13, 22, 0.9);
+}
+
+.scanRunTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.scanRunTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.scanRunMeta {
+  margin: 0.3rem 0 0;
+  color: rgba(198, 208, 229, 0.72);
+}
+
+.scanRunStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.scanRunStatLabel {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(154, 173, 230, 0.72);
+}
+
+.scanRunStatValue {
+  display: block;
+  margin-top: 0.25rem;
+  color: rgba(236, 241, 255, 0.94);
+}
+
+.emptyState {
+  padding: 1rem;
+  border-radius: 0.9rem;
+  border: 1px dashed rgba(103, 129, 219, 0.22);
+  color: rgba(195, 207, 233, 0.76);
+  background: rgba(9, 12, 20, 0.66);
+}
+
+@media (max-width: 1440px) {
+  .metricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .filtersGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .filtersGrid,
+  .metricsGrid,
+  .scanRunStats {
+    grid-template-columns: 1fr;
+  }
+
+  .addressFull {
+    display: none;
+  }
+
+  .addressShort {
+    display: inline;
+  }
+}

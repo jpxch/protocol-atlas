@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ilike, sql } from 'drizzle-orm';
 import type { ChainKey } from '@protocol-atlas/core';
 import type { DatabaseClient } from '../client.js';
 import { watchlistTargets } from '../schema/watchlist-targets.js';
@@ -25,6 +25,21 @@ export interface UpsertWatchlistTargetInput {
   readonly metadata: Readonly<Record<string, unknown>>;
 }
 
+export interface ListWatchlistTargetsInput {
+  readonly chain?: ChainKey;
+  readonly protocolKey?: string;
+  readonly source?: string;
+  readonly isActive?: boolean;
+  readonly search?: string;
+  readonly limit?: number;
+  readonly offset?: number;
+}
+
+export interface ListWatchlistTargetsResult {
+  readonly items: WatchlistTargetRecord[];
+  readonly count: number;
+}
+
 function mapWatchlistRow(row: typeof watchlistTargets.$inferSelect): WatchlistTargetRecord {
   return {
     id: row.id,
@@ -37,6 +52,38 @@ function mapWatchlistRow(row: typeof watchlistTargets.$inferSelect): WatchlistTa
     lastSeenAt: row.lastSeenAt.toISOString(),
     metadata: row.metadata,
   };
+}
+
+function buildWhereClause(input: ListWatchlistTargetsInput) {
+  const conditions = [];
+
+  if (input.chain) {
+    conditions.push(eq(watchlistTargets.chain, input.chain));
+  }
+
+  if (input.protocolKey) {
+    conditions.push(eq(watchlistTargets.protocolKey, input.protocolKey));
+  }
+
+  if (input.source) {
+    conditions.push(eq(watchlistTargets.source, input.source));
+  }
+
+  if (typeof input.isActive === 'boolean') {
+    conditions.push(eq(watchlistTargets.isActive, input.isActive));
+  }
+
+  const normalizedSearch = input.search?.trim();
+
+  if (normalizedSearch) {
+    conditions.push(ilike(watchlistTargets.targetAddress, `%${normalizedSearch}%`));
+  }
+
+  if (conditions.length === 0) {
+    return undefined;
+  }
+
+  return and(...conditions);
 }
 
 export async function upsertWatchlistTarget(
@@ -68,6 +115,48 @@ export async function upsertWatchlistTarget(
     });
 }
 
+export async function listWatchlistTargets(
+  db: DatabaseClient,
+  input: ListWatchlistTargetsInput = {},
+): Promise<ListWatchlistTargetsResult> {
+  const whereClause = buildWhereClause(input);
+  const limit = input.limit ?? 100;
+  const offset = input.offset ?? 0;
+
+  const rows = whereClause
+    ? await db
+        .select()
+        .from(watchlistTargets)
+        .where(whereClause)
+        .orderBy(desc(watchlistTargets.lastSeenAt))
+        .limit(limit)
+        .offset(offset)
+    : await db
+        .select()
+        .from(watchlistTargets)
+        .orderBy(desc(watchlistTargets.lastSeenAt))
+        .limit(limit)
+        .offset(offset);
+
+  const countRows = whereClause
+    ? await db
+        .select({
+          count: sql<number>`count(*)::int`,
+        })
+        .from(watchlistTargets)
+        .where(whereClause)
+    : await db
+        .select({
+          count: sql<number>`count(*)::int`,
+        })
+        .from(watchlistTargets);
+
+  return {
+    items: rows.map(mapWatchlistRow),
+    count: countRows[0]?.count ?? 0,
+  };
+}
+
 export async function listActiveWatchlistTargets(
   db: DatabaseClient,
   input: {
@@ -76,18 +165,13 @@ export async function listActiveWatchlistTargets(
     readonly limit?: number;
   },
 ): Promise<WatchlistTargetRecord[]> {
-  const rows = await db
-    .select()
-    .from(watchlistTargets)
-    .where(
-      and(
-        eq(watchlistTargets.chain, input.chain),
-        eq(watchlistTargets.protocolKey, input.protocolKey),
-        eq(watchlistTargets.isActive, true),
-      ),
-    )
-    .orderBy(desc(watchlistTargets.lastSeenAt))
-    .limit(input.limit ?? 5000);
+  const result = await listWatchlistTargets(db, {
+    chain: input.chain,
+    protocolKey: input.protocolKey,
+    isActive: true,
+    limit: input.limit ?? 5000,
+    offset: 0,
+  });
 
-  return rows.map(mapWatchlistRow);
+  return result.items;
 }
