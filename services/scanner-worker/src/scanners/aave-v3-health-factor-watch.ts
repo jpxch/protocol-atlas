@@ -362,7 +362,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
     const watchTargets = await listActiveWatchlistTargets(db, {
       chain: CHAIN_KEY,
       protocolKey: PROTOCOL_KEY,
-      limit: 5000,
+      limit: env.aaveV3WatchTargetLimit,
     });
 
     await expireScannerOpportunities(db, {
@@ -503,6 +503,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         persistedTargets: watchTargets.length,
         failedTargets,
         monitoringThreshold: env.aaveV3HealthFactorThreshold,
+        watchTargetLimit: env.aaveV3WatchTargetLimit,
         actionableHealthFactorThreshold: ACTIONABLE_HEALTH_FACTOR_THRESHOLD,
         minNetProfitUsd: MIN_NET_PROFIT_USD,
         estimatedGasCostUsd: DEFAULT_GAS_COST_USD,
@@ -522,6 +523,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
           discoveredTargets: discoveredTargets.length,
           persistedTargets: watchTargets.length,
           failedTargets,
+          watchTargetLimit: env.aaveV3WatchTargetLimit,
           opportunitiesFound: opportunities.length,
         },
         null,

@@ -20,6 +20,7 @@ const scannerEnvSchema = z.object({
   AAVE_V3_HF_THRESHOLD: z.coerce.number().positive().default(1),
   AAVE_V3_DISCOVERY_BLOCK_WINDOW: z.coerce.number().int().positive().default(250000),
   AAVE_V3_DISCOVERY_MAX_LOGS: z.coerce.number().int().positive().default(2000),
+  AAVE_V3_WATCH_TARGET_LIMIT: z.coerce.number().int().positive().default(150),
 });
 
 export interface ScannerEnv {
@@ -29,6 +30,7 @@ export interface ScannerEnv {
   readonly aaveV3HealthFactorThreshold: number;
   readonly aaveV3DiscoveryBlockWindow: bigint;
   readonly aaveV3DiscoveryMaxLogs: number;
+  readonly aaveV3WatchTargetLimit: number;
 }
 
 export function getScannerEnv(): ScannerEnv {
@@ -41,5 +43,6 @@ export function getScannerEnv(): ScannerEnv {
     aaveV3HealthFactorThreshold: parsed.AAVE_V3_HF_THRESHOLD,
     aaveV3DiscoveryBlockWindow: BigInt(parsed.AAVE_V3_DISCOVERY_BLOCK_WINDOW),
     aaveV3DiscoveryMaxLogs: parsed.AAVE_V3_DISCOVERY_MAX_LOGS,
+    aaveV3WatchTargetLimit: parsed.AAVE_V3_WATCH_TARGET_LIMIT,
   };
 }
