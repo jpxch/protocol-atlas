@@ -18,6 +18,12 @@ const POOL_ABI = PoolArtifact.abi as Abi;
 const SCANNER_KEY = 'aave-v3-auto-watch';
 const PROTOCOL_KEY = 'aave-v3';
 const CHAIN_KEY = 'arbitrum';
+const AAVE_BASE_CURRENCY_DECIMALS = 8;
+const ACTIONABLE_HEALTH_FACTOR_THRESHOLD = 1;
+const LIQUIDATION_CLOSE_FACTOR = 0.5;
+const LIQUIDATION_BONUS_BPS = 500;
+const DEFAULT_GAS_COST_USD = 12;
+const MIN_NET_PROFIT_USD = 15;
 
 function formatHealthFactor(value: bigint): number {
   return Number(value) / 1e18;
@@ -43,6 +49,64 @@ function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+function bigintToDecimalNumber(value: bigint, decimals: number): number {
+  const negative = value < 0n;
+  const absoluteValue = negative ? value * -1n : value;
+  const divisor = 10n ** BigInt(decimals);
+  const whole = absoluteValue / divisor;
+  const fraction = absoluteValue % divisor;
+
+  const fractionString = fraction.toString().padStart(decimals, '0').slice(0, 6);
+
+  const result = Number(`${whole.toString()}.${fractionString}`);
+
+  return negative ? result * -1 : result;
+}
+
+function formatUsdString(value: number): string {
+  return value.toFixed(2);
+}
+
+interface LiquidationEstimate {
+  readonly totalDebtUsd: number;
+  readonly totalCollateralUsd: number;
+  readonly maxRepayUsd: number;
+  readonly liquidationBonusUsd: number;
+  readonly grossUsd: number;
+  readonly gasCostUsd: number;
+  readonly netUsd: number;
+  readonly isWorthSurfacing: boolean;
+}
+
+function estimateLiquidationCandidate(input: {
+  readonly totalCollateralBase: bigint;
+  readonly totalDebtBase: bigint;
+}): LiquidationEstimate {
+  const totalDebtUsd = bigintToDecimalNumber(input.totalDebtBase, AAVE_BASE_CURRENCY_DECIMALS);
+
+  const totalCollateralUsd = bigintToDecimalNumber(
+    input.totalCollateralBase,
+    AAVE_BASE_CURRENCY_DECIMALS,
+  );
+
+  const maxRepayUsd = totalDebtUsd * LIQUIDATION_CLOSE_FACTOR;
+  const liquidationBonusUsd = maxRepayUsd * (LIQUIDATION_BONUS_BPS / 10_000);
+  const grossUsd = liquidationBonusUsd;
+  const gasCostUsd = DEFAULT_GAS_COST_USD;
+  const netUsd = grossUsd - gasCostUsd;
+
+  return {
+    totalDebtUsd,
+    totalCollateralUsd,
+    maxRepayUsd,
+    liquidationBonusUsd,
+    grossUsd,
+    gasCostUsd,
+    netUsd,
+    isWorthSurfacing: netUsd >= MIN_NET_PROFIT_USD,
+  };
+}
+
 function buildOpportunityRecord(input: {
   readonly user: Address;
   readonly healthFactorRaw: bigint;
@@ -52,6 +116,7 @@ function buildOpportunityRecord(input: {
   readonly currentLiquidationThreshold: bigint;
   readonly ltv: bigint;
   readonly observedAt: string;
+  readonly estimate: LiquidationEstimate;
 }): OpportunityRecord {
   const healthFactor = formatHealthFactor(input.healthFactorRaw);
   const id = `aave-v3:arbitrum:liquidation:${input.user.toLowerCase()}`;
@@ -62,16 +127,18 @@ function buildOpportunityRecord(input: {
     dedupeKey: id,
     chain: CHAIN_KEY,
     protocolKey: PROTOCOL_KEY,
-    title: `Aave V3 liquidation candidate ${shortAddress(input.user)}`,
+    title: `Aave V3 liquidation candidate ${shortAddress(input.user)} · ~$${formatUsdString(
+      input.estimate.netUsd,
+    )} net`,
     kind: 'liquidation',
     status: 'discovered',
     freshness: 'fresh',
     riskLevel: toRiskLevel(healthFactor),
     targetAddress: input.user,
     money: {
-      grossUsd: null,
-      netUsd: null,
-      gasCostUsd: null,
+      grossUsd: formatUsdString(input.estimate.grossUsd),
+      netUsd: formatUsdString(input.estimate.netUsd),
+      gasCostUsd: formatUsdString(input.estimate.gasCostUsd),
     },
     discoveredAt: input.observedAt,
     updatedAt: input.observedAt,
@@ -86,11 +153,19 @@ function buildOpportunityRecord(input: {
         healthFactorRaw: input.healthFactorRaw.toString(),
         healthFactorFormatted: healthFactor,
       },
-      normalization: {
-        grossUsd: null,
-        netUsd: null,
-        reason:
-          'Aave account data is persisted raw first. Explicit USD normalization will be added in a later slice.',
+      liquidationEstimate: {
+        totalCollateralUsd: formatUsdString(input.estimate.totalCollateralUsd),
+        totalDebtUsd: formatUsdString(input.estimate.totalDebtUsd),
+        maxRepayUsd: formatUsdString(input.estimate.maxRepayUsd),
+        liquidationBonusUsd: formatUsdString(input.estimate.liquidationBonusUsd),
+        grossUsd: formatUsdString(input.estimate.grossUsd),
+        gasCostUsd: formatUsdString(input.estimate.gasCostUsd),
+        netUsd: formatUsdString(input.estimate.netUsd),
+        closeFactor: LIQUIDATION_CLOSE_FACTOR,
+        liquidationBonusBps: LIQUIDATION_BONUS_BPS,
+        estimateKind: 'candidate',
+        caveat:
+          'This is a candidate-level estimate derived from Aave account totals in oracle base currency. Exact executable profit requires reserve-level position and liquidation path computation.',
       },
     },
   };
@@ -257,9 +332,20 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         continue;
       }
 
-      if (healthFactor >= env.aaveV3HealthFactorThreshold) {
+      if (healthFactor >= ACTIONABLE_HEALTH_FACTOR_THRESHOLD) {
         continue;
       }
+
+      const estimate = estimateLiquidationCandidate({
+        totalCollateralBase,
+        totalDebtBase,
+      });
+
+      if (!estimate.isWorthSurfacing) {
+        continue;
+      }
+
+      const observedAtForOpportunity = new Date().toISOString();
 
       const opportunity = buildOpportunityRecord({
         user: target.targetAddress as Address,
@@ -269,7 +355,8 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         availableBorrowsBase,
         currentLiquidationThreshold,
         ltv,
-        observedAt: new Date().toISOString(),
+        observedAt: observedAtForOpportunity,
+        estimate,
       });
 
       opportunities.push(opportunity);
@@ -288,7 +375,12 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         discoveredTargets: discoveredTargets.length,
         persistedTargets: watchTargets.length,
         failedTargets,
-        threshold: env.aaveV3HealthFactorThreshold,
+        monitoringThreshold: env.aaveV3HealthFactorThreshold,
+        actionableHealthFactorThreshold: ACTIONABLE_HEALTH_FACTOR_THRESHOLD,
+        minNetProfitUsd: MIN_NET_PROFIT_USD,
+        estimatedGasCostUsd: DEFAULT_GAS_COST_USD,
+        liquidationCloseFactor: LIQUIDATION_CLOSE_FACTOR,
+        liquidationBonusBps: LIQUIDATION_BONUS_BPS,
       },
     });
 
