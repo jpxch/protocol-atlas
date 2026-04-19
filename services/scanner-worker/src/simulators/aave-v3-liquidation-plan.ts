@@ -319,7 +319,7 @@ async function readReservePosition(input: {
   };
 }
 
-export async function buildAaveV3LiquidationPlan(
+async function buildAaveV3LiquidationPlanUnsafe(
   input: PlanInput,
 ): Promise<LiquidationPlanRecord> {
   const [reserves, addressesProvider, flashloanPremiumRaw, userConfig, blockNumber, gasPriceWei] =
@@ -547,4 +547,16 @@ export async function buildAaveV3LiquidationPlan(
       collateralReserveCount: collateralPositions.length,
     })
   );
+}
+
+export async function buildAaveV3LiquidationPlan(
+  input: PlanInput,
+): Promise<LiquidationPlanRecord> {
+  try {
+    return await buildAaveV3LiquidationPlanUnsafe(input);
+  } catch (error) {
+    return buildBlockedPlan(input, 'Liquidation planner read failed before producing a route.', {
+      error: error instanceof Error ? error.message : 'unknown planner failure',
+    });
+  }
 }
