@@ -350,7 +350,48 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
   });
 
   try {
-    const discoveredTargets = await discoverBorrowers(env);
+    let discoveredTargets: readonly Address[] = [];
+    let stoppedForRateLimit = false;
+
+    try {
+      discoveredTargets = await discoverBorrowers(env);
+    } catch (error) {
+      if (!isRateLimitError(error)) {
+        throw error;
+      }
+
+      stoppedForRateLimit = true;
+
+      await completeScanRun(db, {
+        id: runId,
+        status: 'completed',
+        opportunitiesFound: 0,
+        completedAt: new Date().toISOString(),
+        metadata: {
+          discoveredTargets: 0,
+          persistedTargets: 0,
+          failedTargets: 0,
+          rateLimitedTargets: 0,
+          stoppedForRateLimit,
+          rateLimitStage: 'discovery',
+          watchTargetLimit: env.aaveV3WatchTargetLimit,
+          error: error instanceof Error ? error.message : 'unknown rate limit error',
+        },
+      });
+
+      console.warn(
+        JSON.stringify({
+          scannerKey: SCANNER_KEY,
+          protocolKey: PROTOCOL_KEY,
+          chain: CHAIN_KEY,
+          runId,
+          stoppedForRateLimit,
+          rateLimitStage: 'discovery',
+        }),
+      );
+
+      return;
+    }
 
     const observedAt = new Date().toISOString();
 
@@ -381,7 +422,6 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
     const opportunities: OpportunityRecord[] = [];
     let failedTargets = 0;
     let rateLimitedTargets = 0;
-    let stoppedForRateLimit = false;
 
     for (const target of watchTargets) {
       let result: unknown;
