@@ -4,15 +4,18 @@ import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
 import { requestOperatorAction } from '@/lib/api';
 import type {
+  ApiLiquidationPlanRecord,
   ApiOpportunityRecord,
   ApiOpportunitySignal,
   LiquidationCandidatesResponse,
+  LiquidationPlansResponse,
   OperatorActionType,
 } from '@/types/api';
 import styles from './LiquidationsBoard.module.scss';
 
 interface LiquidationsBoardProps {
   readonly response: LiquidationCandidatesResponse;
+  readonly plansResponse: LiquidationPlansResponse;
 }
 
 type SignalFilter = 'all' | ApiOpportunitySignal;
@@ -151,7 +154,10 @@ function signalClass(signal: CandidateDetails['signal']): string {
   }
 }
 
-function summarize(candidates: readonly ApiOpportunityRecord[]) {
+function summarize(
+  candidates: readonly ApiOpportunityRecord[],
+  plansByCandidateId: ReadonlyMap<string, ApiLiquidationPlanRecord>,
+) {
   let actionable = 0;
   let watchClose = 0;
   let lowMargin = 0;
@@ -177,7 +183,7 @@ function summarize(candidates: readonly ApiOpportunityRecord[]) {
       executable += 1;
     }
 
-    netUsd += parseUsd(details.netUsd);
+    netUsd += parseUsd(plansByCandidateId.get(candidate.id)?.netProfitUsd ?? details.netUsd);
   }
 
   return {
@@ -189,13 +195,17 @@ function summarize(candidates: readonly ApiOpportunityRecord[]) {
   };
 }
 
-export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
+export function LiquidationsBoard({ response, plansResponse }: LiquidationsBoardProps) {
   const [search, setSearch] = useState('');
   const [signal, setSignal] = useState<SignalFilter>('all');
   const [risk, setRisk] = useState<RiskFilter>('all');
   const [toast, setToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+
+  const plansByCandidateId = useMemo(() => {
+    return new Map(plansResponse.items.map((plan) => [plan.candidateOpportunityId, plan]));
+  }, [plansResponse.items]);
 
   const visibleCandidates = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -214,7 +224,10 @@ export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
     });
   }, [response.items, risk, search, signal]);
 
-  const summary = useMemo(() => summarize(visibleCandidates), [visibleCandidates]);
+  const summary = useMemo(
+    () => summarize(visibleCandidates, plansByCandidateId),
+    [plansByCandidateId, visibleCandidates],
+  );
 
   async function handleActionRequest(opportunityId: string, actionType: OperatorActionType) {
     const actionKey = `${opportunityId}:${actionType}`;
@@ -276,7 +289,7 @@ export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
             </div>
 
             <div className={styles.metric}>
-              <span className={styles.metricLabel}>Candidate net</span>
+              <span className={styles.metricLabel}>Best plan net</span>
               <strong className={styles.metricValue}>{formatUsd(String(summary.netUsd))}</strong>
             </div>
           </div>
@@ -332,7 +345,7 @@ export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
               <h2 className={styles.panelTitle}>Candidates</h2>
               <p className={styles.panelSubtitle}>
                 Estimates are conservative placeholders until reserve-level debt, collateral, swap
-                route, and flashloan simulation are added.
+                plans now select exact debt and collateral reserves; swap routing is still pending.
               </p>
             </div>
 
@@ -345,6 +358,7 @@ export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
             ) : (
               visibleCandidates.map((candidate) => {
                 const details = getCandidateDetails(candidate);
+                const plan = plansByCandidateId.get(candidate.id);
                 const simulateKey = `${candidate.id}:simulate`;
                 const skipKey = `${candidate.id}:skip`;
 
@@ -364,8 +378,10 @@ export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
                       </div>
 
                       <div className={styles.netBlock}>
-                        <span className={styles.netLabel}>Candidate net</span>
-                        <strong className={styles.netValue}>{formatUsd(details.netUsd)}</strong>
+                        <span className={styles.netLabel}>Best plan net</span>
+                        <strong className={styles.netValue}>
+                          {formatUsd(plan?.netProfitUsd ?? details.netUsd)}
+                        </strong>
                       </div>
                     </div>
 
@@ -394,6 +410,47 @@ export function LiquidationsBoard({ response }: LiquidationsBoardProps) {
                         <strong className={styles.statValue}>{formatUsd(details.totalDebtUsd)}</strong>
                       </div>
                     </div>
+
+                    {plan ? (
+                      <div className={styles.planPanel}>
+                        <div>
+                          <span className={styles.statLabel}>Plan</span>
+                          <strong className={styles.statValue}>
+                            {plan.debtSymbol ?? 'debt'} to{' '}
+                            {plan.collateralSymbol ?? 'collateral'}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span className={styles.statLabel}>Repay</span>
+                          <strong className={styles.statValue}>
+                            {formatUsd(plan.debtToCoverUsd)}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span className={styles.statLabel}>Seize</span>
+                          <strong className={styles.statValue}>
+                            {formatUsd(plan.estimatedCollateralSeizedUsd)}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span className={styles.statLabel}>Plan state</span>
+                          <strong className={styles.statValue}>
+                            {plan.status} / {plan.confidence}
+                          </strong>
+                        </div>
+
+                        <p className={styles.planReason}>{plan.reason}</p>
+                      </div>
+                    ) : (
+                      <div className={styles.planPanel}>
+                        <p className={styles.planReason}>
+                          No reserve-level plan has been persisted for this candidate yet.
+                        </p>
+                      </div>
+                    )}
 
                     <p className={styles.reason}>{details.reason}</p>
 

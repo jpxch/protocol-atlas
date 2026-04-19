@@ -1,11 +1,13 @@
 import type {
   ApiChainKey,
+  ApiLiquidationPlanStatus,
   ApiOpportunitySignal,
   ApiOpportunityStatus,
   ApiRiskLevel,
   ApiScanRunStatus,
   AuditEventsResponse,
   LiquidationCandidatesResponse,
+  LiquidationPlansResponse,
   OperatorActionRequest,
   OperatorActionResponse,
   OpportunitiesResponse,
@@ -31,6 +33,17 @@ const EMPTY_LIQUIDATION_CANDIDATES_RESPONSE: LiquidationCandidatesResponse = {
     status: null,
     riskLevel: null,
     signal: null,
+  },
+};
+
+const EMPTY_LIQUIDATION_PLANS_RESPONSE: LiquidationPlansResponse = {
+  items: [],
+  count: 0,
+  filters: {
+    chain: null,
+    protocolKey: null,
+    status: null,
+    candidateOpportunityId: null,
   },
 };
 
@@ -91,6 +104,14 @@ export interface GetLiquidationCandidatesInput {
   readonly status?: ApiOpportunityStatus;
   readonly riskLevel?: ApiRiskLevel;
   readonly signal?: ApiOpportunitySignal;
+  readonly limit?: number;
+}
+
+export interface GetLiquidationPlansInput {
+  readonly chain?: ApiChainKey;
+  readonly protocolKey?: string;
+  readonly status?: ApiLiquidationPlanStatus;
+  readonly candidateOpportunityId?: string;
   readonly limit?: number;
 }
 
@@ -161,6 +182,30 @@ export async function getLiquidationCandidates(
     warnApiReadFailure('/liquidation-candidates', error);
 
     return EMPTY_LIQUIDATION_CANDIDATES_RESPONSE;
+  }
+}
+
+export async function getLiquidationPlans(
+  input: GetLiquidationPlansInput = {},
+): Promise<LiquidationPlansResponse> {
+  try {
+    const query = buildQueryString({
+      chain: input.chain,
+      protocolKey: input.protocolKey,
+      status: input.status,
+      candidateOpportunityId: input.candidateOpportunityId,
+      limit: input.limit,
+    });
+
+    const response = await fetch(`${API_BASE_URL}/liquidation-plans${query}`, {
+      cache: 'no-store',
+    });
+
+    return parseJson<LiquidationPlansResponse>(response);
+  } catch (error) {
+    warnApiReadFailure('/liquidation-plans', error);
+
+    return EMPTY_LIQUIDATION_PLANS_RESPONSE;
   }
 }
 

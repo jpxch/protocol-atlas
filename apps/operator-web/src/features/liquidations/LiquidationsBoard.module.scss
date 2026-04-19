@@ -36,6 +36,7 @@
 .panelSubtitle,
 .cardMeta,
 .reason,
+.planReason,
 .caveat {
   margin: 0;
   color: var(--atlas-text-muted);
@@ -217,6 +218,26 @@
   gap: 10px;
 }
 
+.planPanel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid var(--atlas-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: rgba(90, 167, 255, 0.06);
+}
+
+.planPanel > div {
+  display: grid;
+  gap: 6px;
+}
+
+.planReason {
+  grid-column: 1 / -1;
+  color: var(--atlas-text-main);
+}
+
 .statsGrid > div {
   display: grid;
   gap: 6px;
@@ -274,7 +295,8 @@
 
 @media (max-width: 1100px) {
   .metricsGrid,
-  .statsGrid {
+  .statsGrid,
+  .planPanel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -292,7 +314,8 @@
   }
 
   .metricsGrid,
-  .statsGrid {
+  .statsGrid,
+  .planPanel {
     grid-template-columns: 1fr;
   }
 

@@ -4,6 +4,7 @@ import { getEnv } from './env.js';
 import { registerAuditEventRoutes } from './routes/audit-events.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerLiquidationCandidateRoutes } from './routes/liquidation-candidates.js';
+import { registerLiquidationPlanRoutes } from './routes/liquidation-plans.js';
 import { registerOpportunityRoutes } from './routes/opportunities.js';
 import { registerOperatorActionRoutes } from './routes/operator-actions.js';
 import { registerScanRunRoutes } from './routes/scan-runs.js';
@@ -21,6 +22,7 @@ export async function buildApp() {
 
   await registerHealthRoutes(app, db);
   await registerLiquidationCandidateRoutes(app, db);
+  await registerLiquidationPlanRoutes(app, db);
   await registerOpportunityRoutes(app, db);
   await registerAuditEventRoutes(app, db);
   await registerOperatorActionRoutes(app, db);

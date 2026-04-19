@@ -1,4 +1,5 @@
 export * from './domain/chain.js';
+export * from './domain/liquidation.js';
 export * from './domain/opportunity.js';
 export * from './domain/review.js';
 export * from './providers/provider.js';

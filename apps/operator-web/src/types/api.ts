@@ -14,6 +14,8 @@ export type ApiRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type ApiChainKey = 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon';
 export type ApiScanRunStatus = 'started' | 'completed' | 'failed';
 export type ApiOpportunitySignal = 'actionable' | 'watch-close' | 'low-margin';
+export type ApiLiquidationPlanStatus = 'planned' | 'blocked' | 'stale';
+export type ApiLiquidationPlanConfidence = 'low' | 'medium' | 'high';
 
 export interface ApiOpportunityRecord {
   readonly id: string;
@@ -51,6 +53,47 @@ export interface LiquidationCandidatesResponse {
     readonly status: ApiOpportunityStatus | null;
     readonly riskLevel: ApiRiskLevel | null;
     readonly signal: ApiOpportunitySignal | null;
+  };
+}
+
+export interface ApiLiquidationPlanRecord {
+  readonly id: string;
+  readonly candidateOpportunityId: string;
+  readonly scannerKey: string;
+  readonly chain: ApiChainKey;
+  readonly protocolKey: string;
+  readonly userAddress: string;
+  readonly debtAsset: string | null;
+  readonly debtSymbol: string | null;
+  readonly collateralAsset: string | null;
+  readonly collateralSymbol: string | null;
+  readonly debtToCover: string | null;
+  readonly debtToCoverUsd: string | null;
+  readonly estimatedCollateralSeized: string | null;
+  readonly estimatedCollateralSeizedUsd: string | null;
+  readonly liquidationBonusBps: number | null;
+  readonly flashloanPremiumBps: number | null;
+  readonly gasCostUsd: string | null;
+  readonly priorityFeeUsd: string | null;
+  readonly slippageBps: number | null;
+  readonly netProfitUsd: string | null;
+  readonly confidence: ApiLiquidationPlanConfidence;
+  readonly status: ApiLiquidationPlanStatus;
+  readonly reason: string;
+  readonly blockNumber: string | null;
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface LiquidationPlansResponse {
+  readonly items: ApiLiquidationPlanRecord[];
+  readonly count: number;
+  readonly filters: {
+    readonly chain: ApiChainKey | null;
+    readonly protocolKey: string | null;
+    readonly status: ApiLiquidationPlanStatus | null;
+    readonly candidateOpportunityId: string | null;
   };
 }
 

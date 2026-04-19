@@ -8,10 +8,12 @@ import {
   createScanRun,
   expireScannerOpportunities,
   listActiveWatchlistTargets,
+  upsertLiquidationPlan,
   upsertOpportunity,
   upsertWatchlistTarget,
 } from '@protocol-atlas/db';
 import type { ScannerEnv } from '../env.js';
+import { buildAaveV3LiquidationPlan } from '../simulators/aave-v3-liquidation-plan.js';
 
 const POOL_ABI = PoolArtifact.abi as Abi;
 
@@ -466,6 +468,29 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
 
     for (const opportunity of opportunities) {
       await upsertOpportunity(db, opportunity);
+
+      const payload = opportunity.payload;
+      const accountData = payload.accountData as
+        | { healthFactorFormatted?: unknown }
+        | undefined;
+      const healthFactor =
+        typeof accountData?.healthFactorFormatted === 'number'
+          ? accountData.healthFactorFormatted
+          : Number(accountData?.healthFactorFormatted);
+
+      const plan = await buildAaveV3LiquidationPlan({
+        publicClient,
+        poolAddress: env.aaveV3ArbitrumPoolAddress,
+        scannerKey: SCANNER_KEY,
+        chain: CHAIN_KEY,
+        protocolKey: PROTOCOL_KEY,
+        candidateOpportunityId: opportunity.id,
+        userAddress: opportunity.targetAddress as Address,
+        healthFactor,
+        observedAt: opportunity.updatedAt,
+      });
+
+      await upsertLiquidationPlan(db, plan);
     }
 
     await completeScanRun(db, {
@@ -483,6 +508,7 @@ export async function runAaveV3HealthFactorWatchScanner(env: ScannerEnv): Promis
         estimatedGasCostUsd: DEFAULT_GAS_COST_USD,
         liquidationCloseFactor: LIQUIDATION_CLOSE_FACTOR,
         liquidationBonusBps: LIQUIDATION_BONUS_BPS,
+        liquidationPlansAttempted: opportunities.length,
       },
     });
 

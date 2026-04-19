@@ -1,5 +1,5 @@
 import { LiquidationsBoard } from '@/features/liquidations/LiquidationsBoard';
-import { getLiquidationCandidates } from '@/lib/api';
+import { getLiquidationCandidates, getLiquidationPlans } from '@/lib/api';
 import type { GetLiquidationCandidatesInput } from '@/lib/api';
 import type {
   ApiChainKey,
@@ -119,7 +119,14 @@ export default async function LiquidationsPage({ searchParams }: LiquidationsPag
     limit,
   };
 
-  const response = await getLiquidationCandidates(input);
+  const [response, plansResponse] = await Promise.all([
+    getLiquidationCandidates(input),
+    getLiquidationPlans({
+      ...(chain ? { chain } : {}),
+      ...(protocolKey ? { protocolKey } : {}),
+      limit,
+    }),
+  ]);
 
-  return <LiquidationsBoard response={response} />;
+  return <LiquidationsBoard response={response} plansResponse={plansResponse} />;
 }

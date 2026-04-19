@@ -1,6 +1,7 @@
 export { sql } from 'drizzle-orm';
 export * from './client.js';
 export * from './schema/index.js';
+export * from './repositories/liquidation-plans.js';
 export * from './repositories/opportunities.js';
 export * from './repositories/operator-actions.js';
 export * from './repositories/audit-events.js';
